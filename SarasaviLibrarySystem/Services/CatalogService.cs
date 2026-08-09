@@ -52,6 +52,58 @@ namespace SarasaviLibrarySystem.Services
             return true;
         }
 
+        public List<BookInventoryItem> GetInventoryItems(string query)
+        {
+            var list = new List<BookInventoryItem>();
+            using var conn = LibraryDbContext.GetConnection();
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = @"SELECT c.AccessionNumber, t.Title, t.Author, t.ClassificationCode, c.CopyType, c.Status
+                                FROM BookCopies c
+                                JOIN BookTitles t ON c.TitleId = t.TitleId
+                                WHERE LOWER(c.AccessionNumber) LIKE @q 
+                                   OR LOWER(t.AccessionCode) LIKE @q
+                                   OR LOWER(t.Title) LIKE @q 
+                                   OR LOWER(t.Author) LIKE @q;";
+            cmd.Parameters.AddWithValue("@q", $"%{query.Trim().ToLower()}%");
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                string accCode = reader.GetString(0);
+                string title = reader.GetString(1);
+                string author = reader.GetString(2);
+                string clsCode = reader.GetString(3);
+                string copyType = reader.GetString(4);
+                string rawStatus = reader.GetString(5);
+
+                string category = clsCode.ToUpper() switch
+                {
+                    "C" => "Computing",
+                    "F" => "Fiction",
+                    "S" => "Science",
+                    "M" => "Management",
+                    _ => "General"
+                };
+
+                string displayStatus = rawStatus;
+                if (copyType.Equals("Reference Only", StringComparison.OrdinalIgnoreCase) && rawStatus.Equals("Available", StringComparison.OrdinalIgnoreCase))
+                {
+                    displayStatus = "Reference Only";
+                }
+
+                list.Add(new BookInventoryItem
+                {
+                    AccessionCode = accCode,
+                    Title = title,
+                    Author = author,
+                    Category = category,
+                    Status = displayStatus
+                });
+            }
+            return list;
+        }
+
         public List<BookCopy> SearchCatalog(string query)
         {
             var list = new List<BookCopy>();
