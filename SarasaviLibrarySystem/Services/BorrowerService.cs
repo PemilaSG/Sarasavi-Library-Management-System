@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
 using SarasaviLibrarySystem.Models;
 
@@ -8,56 +7,62 @@ namespace SarasaviLibrarySystem.Services
 {
     public class BorrowerService
     {
-        public bool RegisterBorrower(string name, string sex, string nic, string address, out string resultMessage, out string userNumber)
+        public bool RegisterBorrower(string name, string sex, string nic, string address, out string userNumber, out string resultMessage)
         {
             userNumber = string.Empty;
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(nic))
+
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(nic) || string.IsNullOrWhiteSpace(address))
             {
-                resultMessage = "Borrower Name and NIC Number are required.";
+                resultMessage = "Name, NIC, and Address are required.";
                 return false;
             }
 
             using var conn = LibraryDbContext.GetConnection();
-
-            using var checkCmd = conn.CreateCommand();
-            checkCmd.CommandText = "SELECT UserNumber FROM Borrowers WHERE NIC = @nic;";
-            checkCmd.Parameters.AddWithValue("@nic", nic.Trim());
-            var existingUser = checkCmd.ExecuteScalar();
-            if (existingUser != null)
+            using (var checkCmd = conn.CreateCommand())
             {
-                resultMessage = $"Borrower with NIC '{nic}' is already registered as '{existingUser}'.";
-                return false;
+                checkCmd.CommandText = "SELECT UserNumber FROM Borrowers WHERE NIC = @nic;";
+                LibraryDbContext.AddParam(checkCmd, "@nic", nic);
+
+                object? existing = checkCmd.ExecuteScalar();
+                if (existing != null)
+                {
+                    resultMessage = $"Borrower with NIC '{nic}' is already registered with User Number {existing}.";
+                    return false;
+                }
             }
 
-            using var maxCmd = conn.CreateCommand();
-            maxCmd.CommandText = "SELECT UserNumber FROM Borrowers ORDER BY UserNumber DESC;";
-            int maxId = 1000;
-            using (var reader = maxCmd.ExecuteReader())
+            int nextId = 1001;
+            using (var maxCmd = conn.CreateCommand())
             {
+                maxCmd.CommandText = "SELECT UserNumber FROM Borrowers ORDER BY UserNumber DESC;";
+                using var reader = maxCmd.ExecuteReader();
                 while (reader.Read())
                 {
-                    string idStr = reader.GetString(0);
-                    if (idStr.StartsWith("M-") && int.TryParse(idStr.Substring(2), out int parsedId))
+                    string code = reader.GetValue(0)?.ToString() ?? "";
+                    if (code.StartsWith("M-") && int.TryParse(code.Substring(2), out int val))
                     {
-                        if (parsedId > maxId) maxId = parsedId;
+                        if (val >= nextId) nextId = val + 1;
                     }
                 }
             }
 
-            userNumber = $"M-{maxId + 1}";
+            userNumber = $"M-{nextId}";
 
-            using var insertCmd = conn.CreateCommand();
-            insertCmd.CommandText = @"INSERT INTO Borrowers (UserNumber, Name, Sex, NIC, Address, RegistrationDate)
-                                      VALUES (@id, @name, @sex, @nic, @addr, @reg);";
-            insertCmd.Parameters.AddWithValue("@id", userNumber);
-            insertCmd.Parameters.AddWithValue("@name", name.Trim());
-            insertCmd.Parameters.AddWithValue("@sex", sex);
-            insertCmd.Parameters.AddWithValue("@nic", nic.Trim());
-            insertCmd.Parameters.AddWithValue("@addr", address.Trim());
-            insertCmd.Parameters.AddWithValue("@reg", DateTime.Now.ToString("o"));
-            insertCmd.ExecuteNonQuery();
+            using (var insertCmd = conn.CreateCommand())
+            {
+                insertCmd.CommandText = @"INSERT INTO Borrowers (UserNumber, Name, Sex, NIC, Address, RegistrationDate)
+                                          VALUES (@unum, @name, @sex, @nic, @addr, @reg);";
+                LibraryDbContext.AddParam(insertCmd, "@unum", userNumber);
+                LibraryDbContext.AddParam(insertCmd, "@name", name);
+                LibraryDbContext.AddParam(insertCmd, "@sex", sex);
+                LibraryDbContext.AddParam(insertCmd, "@nic", nic);
+                LibraryDbContext.AddParam(insertCmd, "@addr", address);
+                LibraryDbContext.AddParam(insertCmd, "@reg", DateTime.Now);
 
-            resultMessage = $"[BORROWER REGISTERED] Registered {name} successfully with User Number: '{userNumber}'.";
+                insertCmd.ExecuteNonQuery();
+            }
+
+            resultMessage = $"Borrower '{name}' registered successfully! Assigned User Number: {userNumber}";
             return true;
         }
 
@@ -65,38 +70,33 @@ namespace SarasaviLibrarySystem.Services
         {
             using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers WHERE UserNumber = @id;";
-            cmd.Parameters.AddWithValue("@id", userNumber.Trim());
+
+            cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers WHERE UserNumber = @unum OR NIC = @unum;";
+            LibraryDbContext.AddParam(cmd, "@unum", userNumber);
 
             using var reader = cmd.ExecuteReader();
-            if (!reader.Read()) return null;
-
-            var borrower = new Borrower
+            if (reader.Read())
             {
-                UserNumber = reader.GetString(0),
-                Name = reader.GetString(1),
-                Sex = reader.GetString(2),
-                NIC = reader.GetString(3),
-                Address = reader.GetString(4),
-                RegistrationDate = DateTime.Parse(reader.GetString(5))
-            };
+                object rawDate = reader.GetValue(5);
+                DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
 
-            using var loanCmd = conn.CreateCommand();
-            loanCmd.CommandText = @"SELECT COUNT(*), 
-                                           SUM(CASE WHEN DateTime(DueDate) < DateTime('now') THEN 1 ELSE 0 END)
-                                    FROM LoanRecords 
-                                    WHERE UserNumber = @id AND Status = 'Active';";
-            loanCmd.Parameters.AddWithValue("@id", userNumber.Trim());
+                var b = new Borrower
+                {
+                    UserNumber = reader.GetValue(0)?.ToString() ?? "",
+                    Name = reader.GetValue(1)?.ToString() ?? "",
+                    Sex = reader.GetValue(2)?.ToString() ?? "",
+                    NIC = reader.GetValue(3)?.ToString() ?? "",
+                    Address = reader.GetValue(4)?.ToString() ?? "",
+                    RegistrationDate = regDate
+                };
+                reader.Close();
 
-            using var loanReader = loanCmd.ExecuteReader();
-            if (loanReader.Read())
-            {
-                borrower.ActiveLoansCount = loanReader.GetInt32(0);
-                int overdueCount = loanReader.IsDBNull(1) ? 0 : loanReader.GetInt32(1);
-                borrower.HasOverdueLoans = overdueCount > 0;
+                b.ActiveLoansCount = GetActiveLoansCount(b.UserNumber, conn);
+                b.HasOverdueLoans = CheckHasOverdueLoans(b.UserNumber, conn);
+                return b;
             }
 
-            return borrower;
+            return null;
         }
 
         public List<Borrower> GetAllBorrowers()
@@ -104,15 +104,51 @@ namespace SarasaviLibrarySystem.Services
             var list = new List<Borrower>();
             using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT UserNumber FROM Borrowers ORDER BY UserNumber ASC;";
+            cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers ORDER BY UserNumber ASC;";
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                var b = GetBorrowerDetails(reader.GetString(0));
-                if (b != null) list.Add(b);
+                object rawDate = reader.GetValue(5);
+                DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
+
+                var b = new Borrower
+                {
+                    UserNumber = reader.GetValue(0)?.ToString() ?? "",
+                    Name = reader.GetValue(1)?.ToString() ?? "",
+                    Sex = reader.GetValue(2)?.ToString() ?? "",
+                    NIC = reader.GetValue(3)?.ToString() ?? "",
+                    Address = reader.GetValue(4)?.ToString() ?? "",
+                    RegistrationDate = regDate
+                };
+                list.Add(b);
             }
+
+            foreach (var item in list)
+            {
+                item.ActiveLoansCount = GetActiveLoansCount(item.UserNumber, conn);
+                item.HasOverdueLoans = CheckHasOverdueLoans(item.UserNumber, conn);
+            }
+
             return list;
+        }
+
+        private int GetActiveLoansCount(string userNumber, System.Data.Common.DbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE UserNumber = @unum AND Status = 'Active';";
+            LibraryDbContext.AddParam(cmd, "@unum", userNumber);
+            return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+        }
+
+        private bool CheckHasOverdueLoans(string userNumber, System.Data.Common.DbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE UserNumber = @unum AND Status = 'Active' AND DueDate < @now;";
+            LibraryDbContext.AddParam(cmd, "@unum", userNumber);
+            LibraryDbContext.AddParam(cmd, "@now", DateTime.Now);
+            long count = Convert.ToInt64(cmd.ExecuteScalar() ?? 0);
+            return count > 0;
         }
     }
 }

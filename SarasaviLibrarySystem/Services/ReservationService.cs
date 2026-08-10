@@ -1,76 +1,74 @@
 using System;
-using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
-using SarasaviLibrarySystem.Models;
 
 namespace SarasaviLibrarySystem.Services
 {
     public class ReservationService
     {
-        public bool CreateReservation(int titleId, string userNumber, out string message)
+        public bool ReserveTitle(int titleId, string userNumber, out string resultMessage)
         {
-            using var conn = LibraryDbContext.GetConnection();
-
             var borrowerService = new BorrowerService();
             var borrower = borrowerService.GetBorrowerDetails(userNumber);
+
             if (borrower == null)
             {
-                message = $"Borrower '{userNumber}' not found.";
+                resultMessage = "Borrower with specified User Number was not found.";
                 return false;
             }
 
+            using var conn = LibraryDbContext.GetConnection();
             using var checkCmd = conn.CreateCommand();
-            checkCmd.CommandText = "SELECT COUNT(*) FROM ReservationRecords WHERE TitleId = @tid AND UserNumber = @user AND Status = 'Pending';";
-            checkCmd.Parameters.AddWithValue("@tid", titleId);
-            checkCmd.Parameters.AddWithValue("@user", userNumber);
-            long existing = (long)(checkCmd.ExecuteScalar() ?? 0);
-            if (existing > 0)
+
+            checkCmd.CommandText = "SELECT COUNT(*) FROM ReservationRecords WHERE TitleId = @tid AND UserNumber = @unum AND Status = 'Pending';";
+            LibraryDbContext.AddParam(checkCmd, "@tid", titleId);
+            LibraryDbContext.AddParam(checkCmd, "@unum", userNumber);
+
+            long existingCount = Convert.ToInt64(checkCmd.ExecuteScalar() ?? 0);
+            if (existingCount > 0)
             {
-                message = $"Member {borrower.Name} ({userNumber}) already has an active pending reservation for this book title.";
+                resultMessage = $"Borrower {userNumber} already has an active pending reservation for this title.";
                 return false;
             }
 
             using var insertCmd = conn.CreateCommand();
             insertCmd.CommandText = @"INSERT INTO ReservationRecords (TitleId, UserNumber, RequestDate, Status)
-                                      VALUES (@tid, @user, @req, 'Pending');";
-            insertCmd.Parameters.AddWithValue("@tid", titleId);
-            insertCmd.Parameters.AddWithValue("@user", userNumber);
-            insertCmd.Parameters.AddWithValue("@req", DateTime.Now.ToString("o"));
-            insertCmd.ExecuteNonQuery();
+                                      VALUES (@tid, @unum, @req, 'Pending');";
+            LibraryDbContext.AddParam(insertCmd, "@tid", titleId);
+            LibraryDbContext.AddParam(insertCmd, "@unum", userNumber);
+            LibraryDbContext.AddParam(insertCmd, "@req", DateTime.Now.ToString("o"));
 
-            message = $"Reservation successfully recorded for {borrower.Name} ({userNumber}).";
-            return true;
+            int rows = insertCmd.ExecuteNonQuery();
+            if (rows > 0)
+            {
+                resultMessage = $"Reservation placed successfully for Borrower {userNumber}. You will be notified when a copy is returned.";
+                return true;
+            }
+            else
+            {
+                resultMessage = "Failed to create reservation record.";
+                return false;
+            }
         }
 
-        public List<ReservationRecord> GetPendingReservations(int titleId)
+        public bool CancelReservation(long reservationId, out string resultMessage)
         {
-            var list = new List<ReservationRecord>();
             using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"SELECT r.ReservationId, r.TitleId, t.Title, r.UserNumber, b.Name, r.RequestDate, r.Status
-                                FROM ReservationRecords r
-                                JOIN BookTitles t ON r.TitleId = t.TitleId
-                                JOIN Borrowers b ON r.UserNumber = b.UserNumber
-                                WHERE r.TitleId = @tid AND r.Status = 'Pending'
-                                ORDER BY r.RequestDate ASC;";
-            cmd.Parameters.AddWithValue("@tid", titleId);
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            cmd.CommandText = "UPDATE ReservationRecords SET Status = 'Cancelled' WHERE ReservationId = @rid;";
+            LibraryDbContext.AddParam(cmd, "@rid", reservationId);
+
+            int rows = cmd.ExecuteNonQuery();
+            if (rows > 0)
             {
-                list.Add(new ReservationRecord
-                {
-                    ReservationId = reader.GetInt32(0),
-                    TitleId = reader.GetInt32(1),
-                    BookTitle = reader.GetString(2),
-                    UserNumber = reader.GetString(3),
-                    BorrowerName = reader.GetString(4),
-                    RequestDate = DateTime.Parse(reader.GetString(5)),
-                    Status = reader.GetString(6)
-                });
+                resultMessage = "Reservation cancelled successfully.";
+                return true;
             }
-            return list;
+            else
+            {
+                resultMessage = "Reservation record not found or already processed.";
+                return false;
+            }
         }
     }
 }

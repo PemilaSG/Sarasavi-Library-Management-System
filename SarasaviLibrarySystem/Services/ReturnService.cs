@@ -1,109 +1,122 @@
 using System;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
 
 namespace SarasaviLibrarySystem.Services
 {
     public class ReturnService
     {
-        public bool ProcessReturn(string copyAccessionNumber, out string resultMessage, out string? reservationAlertNotification)
+        public bool ProcessReturn(string copyAccessionNumber, out string resultMessage, out bool isReservedSetAsideNeeded, out string reservationUserNumber)
         {
-            reservationAlertNotification = null;
+            isReservedSetAsideNeeded = false;
+            reservationUserNumber = string.Empty;
+
             using var conn = LibraryDbContext.GetConnection();
+            using var cmd = conn.CreateCommand();
 
-            using var findCmd = conn.CreateCommand();
-            findCmd.CommandText = @"SELECT l.LoanId, l.UserNumber, c.TitleId, t.Title
-                                    FROM LoanRecords l
-                                    JOIN BookCopies c ON l.CopyAccessionNumber = c.AccessionNumber
-                                    JOIN BookTitles t ON c.TitleId = t.TitleId
-                                    WHERE l.CopyAccessionNumber = @acc AND l.Status = 'Active';";
-            findCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
+            cmd.CommandText = @"SELECT LoanId, UserNumber, IssueDate, DueDate, Status 
+                               FROM LoanRecords 
+                               WHERE CopyAccessionNumber = @acc AND Status = 'Active';";
+            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
 
-            int loanId = 0;
-            string userNumber = string.Empty;
-            int titleId = 0;
-            string bookTitle = string.Empty;
-
-            using (var reader = findCmd.ExecuteReader())
+            long loanId = -1;
+            string borrowerUserNumber = "";
+            using (var reader = cmd.ExecuteReader())
             {
-                if (!reader.Read())
+                if (reader.Read())
                 {
-                    resultMessage = $"[RETURN FAILED] Copy '{copyAccessionNumber}' has no active checkout record.";
+                    loanId = Convert.ToInt64(reader.GetValue(0));
+                    borrowerUserNumber = reader.GetValue(1)?.ToString() ?? "";
+                }
+                else
+                {
+                    resultMessage = $"No active loan record found for accession code '{copyAccessionNumber}'.";
                     return false;
                 }
-                loanId = reader.GetInt32(0);
-                userNumber = reader.GetString(1);
-                titleId = reader.GetInt32(2);
-                bookTitle = reader.GetString(3);
             }
 
-            using var transaction = conn.BeginTransaction();
-
-            using var updateLoanCmd = conn.CreateCommand();
-            updateLoanCmd.CommandText = @"UPDATE LoanRecords 
-                                          SET Status = 'Returned', ReturnDate = @ret 
-                                          WHERE LoanId = @lid;";
-            updateLoanCmd.Parameters.AddWithValue("@ret", DateTime.Now.ToString("o"));
-            updateLoanCmd.Parameters.AddWithValue("@lid", loanId);
-            updateLoanCmd.ExecuteNonQuery();
-
-            using var resCmd = conn.CreateCommand();
-            resCmd.CommandText = @"SELECT r.ReservationId, r.UserNumber, b.Name, r.RequestDate 
-                                   FROM ReservationRecords r
-                                   JOIN Borrowers b ON r.UserNumber = b.UserNumber
-                                   WHERE r.TitleId = @tid AND r.Status = 'Pending'
-                                   ORDER BY r.RequestDate ASC LIMIT 1;";
-            resCmd.Parameters.AddWithValue("@tid", titleId);
-
-            int resId = 0;
-            string resUserNumber = string.Empty;
-            string resUserName = string.Empty;
-            string resRequestDate = string.Empty;
-            bool hasReservation = false;
-
-            using (var resReader = resCmd.ExecuteReader())
+            int titleId = -1;
+            using (var titleCmd = conn.CreateCommand())
             {
-                if (resReader.Read())
+                titleCmd.CommandText = "SELECT TitleId FROM BookCopies WHERE AccessionNumber = @acc;";
+                LibraryDbContext.AddParam(titleCmd, "@acc", copyAccessionNumber);
+                object? tidObj = titleCmd.ExecuteScalar();
+                if (tidObj != null) titleId = Convert.ToInt32(tidObj);
+            }
+
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                DateTime returnDate = DateTime.Now;
+                using (var updateLoanCmd = conn.CreateCommand())
                 {
-                    resId = resReader.GetInt32(0);
-                    resUserNumber = resReader.GetString(1);
-                    resUserName = resReader.GetString(2);
-                    resRequestDate = resReader.GetString(3);
-                    hasReservation = true;
+                    updateLoanCmd.Transaction = tx;
+                    updateLoanCmd.CommandText = @"UPDATE LoanRecords 
+                                                  SET Status = 'Returned', ReturnDate = @ret 
+                                                  WHERE LoanId = @lid;";
+                    LibraryDbContext.AddParam(updateLoanCmd, "@ret", returnDate);
+                    LibraryDbContext.AddParam(updateLoanCmd, "@lid", loanId);
+                    updateLoanCmd.ExecuteNonQuery();
                 }
-            }
 
-            if (hasReservation)
+                long pendingResId = -1;
+                string pendingUserNum = "";
+                if (titleId > 0)
+                {
+                    using var resCmd = conn.CreateCommand();
+                    resCmd.Transaction = tx;
+                    resCmd.CommandText = @"SELECT ReservationId, UserNumber 
+                                           FROM ReservationRecords 
+                                           WHERE TitleId = @tid AND Status = 'Pending' 
+                                           ORDER BY RequestDate ASC;";
+                    LibraryDbContext.AddParam(resCmd, "@tid", titleId);
+
+                    using var resReader = resCmd.ExecuteReader();
+                    if (resReader.Read())
+                    {
+                        pendingResId = Convert.ToInt64(resReader.GetValue(0));
+                        pendingUserNum = resReader.GetValue(1)?.ToString() ?? "";
+                    }
+                }
+
+                if (pendingResId > 0)
+                {
+                    isReservedSetAsideNeeded = true;
+                    reservationUserNumber = pendingUserNum;
+
+                    using var setCopyReservedCmd = conn.CreateCommand();
+                    setCopyReservedCmd.Transaction = tx;
+                    setCopyReservedCmd.CommandText = "UPDATE BookCopies SET Status = 'Reserved' WHERE AccessionNumber = @acc;";
+                    LibraryDbContext.AddParam(setCopyReservedCmd, "@acc", copyAccessionNumber);
+                    setCopyReservedCmd.ExecuteNonQuery();
+
+                    using var fulfillResCmd = conn.CreateCommand();
+                    fulfillResCmd.Transaction = tx;
+                    fulfillResCmd.CommandText = "UPDATE ReservationRecords SET Status = 'Fulfilled' WHERE ReservationId = @rid;";
+                    LibraryDbContext.AddParam(fulfillResCmd, "@rid", pendingResId);
+                    fulfillResCmd.ExecuteNonQuery();
+
+                    resultMessage = $"Return processed successfully for '{copyAccessionNumber}'. ATTENTION: Book is RESERVED for member {pendingUserNum}. Put copy aside on reservation shelf.";
+                }
+                else
+                {
+                    using var setCopyAvailableCmd = conn.CreateCommand();
+                    setCopyAvailableCmd.Transaction = tx;
+                    setCopyAvailableCmd.CommandText = "UPDATE BookCopies SET Status = 'Available' WHERE AccessionNumber = @acc;";
+                    LibraryDbContext.AddParam(setCopyAvailableCmd, "@acc", copyAccessionNumber);
+                    setCopyAvailableCmd.ExecuteNonQuery();
+
+                    resultMessage = $"Return processed successfully for '{copyAccessionNumber}'. Copy is now available on main shelf.";
+                }
+
+                tx.Commit();
+                return true;
+            }
+            catch (Exception ex)
             {
-                using var updateCopyCmd = conn.CreateCommand();
-                updateCopyCmd.CommandText = "UPDATE BookCopies SET Status = 'Reserved' WHERE AccessionNumber = @acc;";
-                updateCopyCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
-                updateCopyCmd.ExecuteNonQuery();
-
-                using var updateResCmd = conn.CreateCommand();
-                updateResCmd.CommandText = "UPDATE ReservationRecords SET Status = 'Fulfilled' WHERE ReservationId = @rid;";
-                updateResCmd.Parameters.AddWithValue("@rid", resId);
-                updateResCmd.ExecuteNonQuery();
-
-                reservationAlertNotification = $"🔔 [RESERVATION SET-ASIDE ALERT]\n" +
-                                               $"Book Title: '{bookTitle}'\n" +
-                                               $"Copy Returned: {copyAccessionNumber}\n\n" +
-                                               $"⚠️ THIS TITLE HAS AN ACTIVE RESERVATION!\n" +
-                                               $"Please SET ASIDE this book for Member: {resUserName} ({resUserNumber})\n" +
-                                               $"Reservation Request Date: {resRequestDate}";
+                tx.Rollback();
+                resultMessage = $"Return processing failed due to database error: {ex.Message}";
+                return false;
             }
-            else
-            {
-                using var updateCopyCmd = conn.CreateCommand();
-                updateCopyCmd.CommandText = "UPDATE BookCopies SET Status = 'Available' WHERE AccessionNumber = @acc;";
-                updateCopyCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
-                updateCopyCmd.ExecuteNonQuery();
-            }
-
-            transaction.Commit();
-
-            resultMessage = $"[RETURN SUCCESSFUL] Copy '{copyAccessionNumber}' ({bookTitle}) returned successfully by {userNumber}.";
-            return true;
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using SarasaviLibrarySystem.Services;
 
@@ -7,8 +8,6 @@ namespace SarasaviLibrarySystem.UI.Views
 {
     public class InquiryView : UserControl
     {
-        private Label lblHeader = null!;
-        private Panel pnlSearch = null!;
         private TextBox txtSearch = null!;
         private Button btnSearch = null!;
         private DataGridView gridCatalog = null!;
@@ -17,19 +16,17 @@ namespace SarasaviLibrarySystem.UI.Views
         public InquiryView()
         {
             InitializeComponent();
-            PerformSearch("");
-            this.Resize += (s, e) => LayoutInquiry();
-            LayoutInquiry();
+            LoadCatalog("");
         }
 
         private void InitializeComponent()
         {
             this.Dock = DockStyle.Fill;
-            this.BackColor = Color.FromArgb(24, 27, 36);
+            this.BackColor = Color.FromArgb(18, 22, 33);
 
-            lblHeader = new Label
+            var lblHeader = new Label
             {
-                Text = "Catalog Inquiry & Multi-Keyword Search",
+                Text = "Catalog Inquiry & Search Engine",
                 Font = new Font("Segoe UI", 18F, FontStyle.Bold),
                 ForeColor = Color.White,
                 Location = new Point(25, 20),
@@ -37,41 +34,29 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             this.Controls.Add(lblHeader);
 
-            pnlSearch = new Panel
-            {
-                Location = new Point(25, 65),
-                Size = new Size(1180, 70),
-                BackColor = Color.FromArgb(34, 39, 53)
-            };
-
-            pnlSearch.Controls.Add(new Label
-            {
-                Text = "Search Catalog (Accession Code X9999 / Title / Author):",
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = Color.Gray,
-                Location = new Point(15, 10),
-                AutoSize = true
-            });
-
             txtSearch = new TextBox
             {
-                Location = new Point(15, 30),
-                Size = new Size(700, 30),
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Location = new Point(25, 70),
+                Size = new Size(500, 34),
                 Font = new Font("Segoe UI", 11F),
-                BackColor = Color.FromArgb(45, 52, 71),
-                ForeColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                BackColor = Color.FromArgb(30, 36, 52),
+                ForeColor = Color.Gainsboro,
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = "Search by Accession Code (e.g., C0001), Title, or Author..."
             };
-            txtSearch.TextChanged += (s, e) => PerformSearch(txtSearch.Text);
-            pnlSearch.Controls.Add(txtSearch);
+            txtSearch.GotFocus += (s, e) => { if (txtSearch.Text.StartsWith("Search by")) txtSearch.Text = ""; };
+            txtSearch.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(txtSearch.Text)) txtSearch.Text = "Search by Accession Code (e.g., C0001), Title, or Author..."; };
+            txtSearch.TextChanged += (s, e) => {
+                string q = txtSearch.Text.StartsWith("Search by") ? "" : txtSearch.Text;
+                LoadCatalog(q);
+            };
+            this.Controls.Add(txtSearch);
 
             btnSearch = new Button
             {
                 Text = "Search Catalog",
-                Location = new Point(725, 29),
-                Size = new Size(180, 32),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(535, 69),
+                Size = new Size(150, 36),
                 BackColor = Color.FromArgb(41, 128, 185),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
@@ -79,15 +64,17 @@ namespace SarasaviLibrarySystem.UI.Views
                 Cursor = Cursors.Hand
             };
             btnSearch.FlatAppearance.BorderSize = 0;
-            btnSearch.Click += (s, e) => PerformSearch(txtSearch.Text);
-            pnlSearch.Controls.Add(btnSearch);
+            btnSearch.Click += (s, e) => {
+                string q = txtSearch.Text.StartsWith("Search by") ? "" : txtSearch.Text;
+                LoadCatalog(q);
+            };
+            this.Controls.Add(btnSearch);
 
             btnReserve = new Button
             {
-                Text = "Place Reservation for Selected Title",
-                Location = new Point(915, 29),
-                Size = new Size(250, 32),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Text = "Place Reservation for Selected Book",
+                Location = new Point(700, 69),
+                Size = new Size(270, 36),
                 BackColor = Color.FromArgb(230, 126, 34),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
@@ -96,16 +83,14 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             btnReserve.FlatAppearance.BorderSize = 0;
             btnReserve.Click += BtnReserve_Click;
-            pnlSearch.Controls.Add(btnReserve);
-
-            this.Controls.Add(pnlSearch);
+            this.Controls.Add(btnReserve);
 
             gridCatalog = new DataGridView
             {
-                Location = new Point(25, 150),
-                Size = new Size(1180, 500),
+                Location = new Point(25, 120),
+                Size = new Size(1180, 530),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
-                BackgroundColor = Color.FromArgb(30, 34, 45),
+                BackgroundColor = Color.FromArgb(26, 32, 46),
                 BorderStyle = BorderStyle.None,
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F),
@@ -113,204 +98,210 @@ namespace SarasaviLibrarySystem.UI.Views
                 AllowUserToAddRows = false,
                 ReadOnly = true,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoGenerateColumns = true,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+                AutoGenerateColumns = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowTemplate = { Height = 42 }
             };
 
             gridCatalog.EnableHeadersVisualStyles = false;
-            gridCatalog.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 52, 71);
-            gridCatalog.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            gridCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-            gridCatalog.ColumnHeadersHeight = 35;
-            gridCatalog.DefaultCellStyle.BackColor = Color.FromArgb(30, 34, 45);
-            gridCatalog.DefaultCellStyle.SelectionBackColor = Color.FromArgb(52, 73, 94);
+            gridCatalog.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(34, 42, 60);
+            gridCatalog.ColumnHeadersDefaultCellStyle.ForeColor = Color.Gainsboro;
+            gridCatalog.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10.5F, FontStyle.Bold);
+            gridCatalog.ColumnHeadersHeight = 40;
+            gridCatalog.DefaultCellStyle.BackColor = Color.FromArgb(26, 32, 46);
+            gridCatalog.DefaultCellStyle.SelectionBackColor = Color.FromArgb(45, 56, 80);
             gridCatalog.DefaultCellStyle.SelectionForeColor = Color.White;
 
-            gridCatalog.CellFormatting += GridCatalog_CellFormatting;
+            gridCatalog.Columns.Clear();
+            gridCatalog.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "AccessionCode",
+                DataPropertyName = "AccessionCode",
+                HeaderText = "Accession Code 🔹",
+                FillWeight = 15F
+            });
+            gridCatalog.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Title",
+                DataPropertyName = "Title",
+                HeaderText = "Title",
+                FillWeight = 38F
+            });
+            gridCatalog.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Author",
+                DataPropertyName = "Author",
+                HeaderText = "Author",
+                FillWeight = 25F
+            });
+            gridCatalog.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Category",
+                DataPropertyName = "Category",
+                HeaderText = "Category",
+                FillWeight = 11F
+            });
+            gridCatalog.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "Status",
+                DataPropertyName = "Status",
+                HeaderText = "Status",
+                FillWeight = 11F
+            });
 
+            gridCatalog.CellPainting += GridCatalog_CellPainting;
             this.Controls.Add(gridCatalog);
         }
 
-        private void LayoutInquiry()
-        {
-            int margin = 25;
-            int availableWidth = Math.Max(900, this.ClientSize.Width - (margin * 2));
-
-            if (lblHeader != null)
-            {
-                lblHeader.Location = new Point(margin, 20);
-            }
-
-            if (pnlSearch != null)
-            {
-                pnlSearch.Location = new Point(margin, 65);
-                pnlSearch.Size = new Size(availableWidth, 70);
-            }
-
-            if (txtSearch != null)
-            {
-                int searchWidth = Math.Max(420, availableWidth - 470);
-                txtSearch.Size = new Size(searchWidth, 30);
-            }
-
-            if (btnSearch != null)
-            {
-                btnSearch.Location = new Point(pnlSearch.ClientSize.Width - 435, 29);
-            }
-
-            if (btnReserve != null)
-            {
-                btnReserve.Location = new Point(pnlSearch.ClientSize.Width - 250 - 15, 29);
-            }
-
-            if (gridCatalog != null)
-            {
-                gridCatalog.Location = new Point(margin, 150);
-                gridCatalog.Size = new Size(availableWidth, Math.Max(300, this.ClientSize.Height - 175));
-            }
-        }
-
-        private void PerformSearch(string query)
+        private void LoadCatalog(string query)
         {
             var service = new CatalogService();
-            var list = service.SearchCatalog(query);
+            var list = service.GetInventoryItems(query);
             gridCatalog.DataSource = list;
-            FormatGridColumns();
         }
 
-        private void FormatGridColumns()
+        private void GridCatalog_CellPainting(object? sender, DataGridViewCellPaintingEventArgs e)
         {
-            if (gridCatalog.Columns["TitleId"] is DataGridViewColumn colTitleId)
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && gridCatalog.Columns[e.ColumnIndex].Name == "Status" && e.Value != null)
             {
-                colTitleId.HeaderText = "Title ID";
-                colTitleId.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                colTitleId.Width = 80;
-            }
-            if (gridCatalog.Columns["AccessionNumber"] is DataGridViewColumn colAcc)
-            {
-                colAcc.HeaderText = "Accession Code";
-                colAcc.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                colAcc.Width = 140;
-            }
-            if (gridCatalog.Columns["TitleName"] is DataGridViewColumn colTitle)
-            {
-                colTitle.HeaderText = "Book Title";
-                colTitle.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-            }
-            if (gridCatalog.Columns["AuthorName"] is DataGridViewColumn colAuthor)
-            {
-                colAuthor.HeaderText = "Author Name";
-                colAuthor.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                colAuthor.Width = 260;
-            }
-            if (gridCatalog.Columns["CopyType"] is DataGridViewColumn colType)
-            {
-                colType.HeaderText = "Copy Type";
-                colType.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                colType.Width = 140;
-            }
-            if (gridCatalog.Columns["Status"] is DataGridViewColumn colStatus)
-            {
-                colStatus.HeaderText = "Current Status";
-                colStatus.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-                colStatus.Width = 130;
-            }
-        }
+                e.Paint(e.CellBounds, DataGridViewPaintParts.All & ~DataGridViewPaintParts.ContentForeground);
 
-        private void GridCatalog_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
-        {
-            if (gridCatalog.Columns[e.ColumnIndex].Name == "Status" && e.Value != null)
-            {
                 string status = e.Value.ToString()!;
-                if (status == "Available")
+                Color bg = Color.FromArgb(39, 174, 96);
+                Color text = Color.White;
+
+                if (status == "Reference Only")
                 {
-                    e.CellStyle!.ForeColor = Color.FromArgb(46, 204, 113);
-                    e.CellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+                    bg = Color.FromArgb(241, 196, 15);
+                    text = Color.FromArgb(20, 20, 20);
                 }
                 else if (status == "Borrowed")
                 {
-                    e.CellStyle!.ForeColor = Color.FromArgb(52, 152, 219);
-                    e.CellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+                    bg = Color.FromArgb(52, 152, 219);
+                    text = Color.White;
                 }
                 else if (status == "Reserved")
                 {
-                    e.CellStyle!.ForeColor = Color.FromArgb(230, 126, 34);
-                    e.CellStyle.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+                    bg = Color.FromArgb(230, 126, 34);
+                    text = Color.White;
                 }
+
+                int padX = 14;
+                int padY = 7;
+                Rectangle badgeRect = new Rectangle(
+                    e.CellBounds.X + padX,
+                    e.CellBounds.Y + padY,
+                    e.CellBounds.Width - (padX * 2),
+                    e.CellBounds.Height - (padY * 2)
+                );
+
+                using (var path = GetRoundedPath(badgeRect, 12))
+                using (var brush = new SolidBrush(bg))
+                using (var font = new Font("Segoe UI", 9F, FontStyle.Bold))
+                using (var textBrush = new SolidBrush(text))
+                using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                {
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    e.Graphics.FillPath(brush, path);
+                    e.Graphics.DrawString(status, font, textBrush, badgeRect, sf);
+                }
+
+                e.Handled = true;
             }
+        }
+
+        private GraphicsPath GetRoundedPath(Rectangle rect, int radius)
+        {
+            var path = new GraphicsPath();
+            int d = radius * 2;
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         private void BtnReserve_Click(object? sender, EventArgs e)
         {
             if (gridCatalog.SelectedRows.Count == 0)
             {
-                MessageBox.Show("Please select a book row from the table first.", "Selection Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Please select a book from the list to reserve.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             var row = gridCatalog.SelectedRows[0];
-            int titleId = Convert.ToInt32(row.Cells["TitleId"].Value);
-            string titleName = row.Cells["TitleName"].Value?.ToString() ?? string.Empty;
+            string code = row.Cells["AccessionCode"].Value?.ToString() ?? "";
+            string title = row.Cells["Title"].Value?.ToString() ?? "";
 
-            using var inputDlg = new Form
+            using var dlg = new Form
             {
-                Text = "Place Book Title Reservation",
-                Size = new Size(420, 200),
+                Text = $"Place Reservation - {title}",
+                Size = new Size(420, 220),
                 StartPosition = FormStartPosition.CenterParent,
-                BackColor = Color.FromArgb(34, 39, 53),
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
-                MinimizeBox = false
+                MinimizeBox = false,
+                BackColor = Color.FromArgb(26, 32, 46)
             };
 
-            var lblPrompt = new Label
+            dlg.Controls.Add(new Label
             {
-                Text = $"Reserving Title: '{titleName}'\nEnter Member User Number (e.g. M-1002):",
+                Text = $"Reserving: '{title}' ({code})",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = Color.Gainsboro,
+                ForeColor = Color.White,
                 Location = new Point(20, 20),
-                Size = new Size(360, 45)
-            };
+                AutoSize = true
+            });
+
+            dlg.Controls.Add(new Label
+            {
+                Text = "Enter Borrower User Number (e.g. M-1002):",
+                Font = new Font("Segoe UI", 9.5F),
+                ForeColor = Color.Gainsboro,
+                Location = new Point(20, 55),
+                AutoSize = true
+            });
 
             var txtUserNum = new TextBox
             {
-                Location = new Point(20, 70),
+                Location = new Point(20, 80),
                 Size = new Size(360, 30),
-                Font = new Font("Segoe UI", 11F),
-                BackColor = Color.FromArgb(45, 52, 71),
+                Font = new Font("Segoe UI", 10.5F),
+                BackColor = Color.FromArgb(36, 44, 62),
                 ForeColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
                 Text = "M-1002"
             };
+            dlg.Controls.Add(txtUserNum);
 
             var btnSubmit = new Button
             {
-                Text = "Submit Reservation",
-                Location = new Point(20, 115),
-                Size = new Size(360, 35),
+                Text = "Confirm Reservation",
+                Location = new Point(20, 125),
+                Size = new Size(360, 36),
                 BackColor = Color.FromArgb(230, 126, 34),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                FlatStyle = FlatStyle.Flat,
-                DialogResult = DialogResult.OK
+                FlatStyle = FlatStyle.Flat
             };
-
-            inputDlg.Controls.Add(lblPrompt);
-            inputDlg.Controls.Add(txtUserNum);
-            inputDlg.Controls.Add(btnSubmit);
-
-            if (inputDlg.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(txtUserNum.Text))
-            {
-                var service = new ReservationService();
-                if (service.CreateReservation(titleId, txtUserNum.Text.Trim(), out string msg))
+            btnSubmit.FlatAppearance.BorderSize = 0;
+            btnSubmit.Click += (s, ev) => {
+                string uNum = txtUserNum.Text.Trim();
+                var resService = new ReservationService();
+                if (resService.ReserveTitle(1, uNum, out string msg))
                 {
-                    MessageBox.Show(msg, "Reservation Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    PerformSearch(txtSearch.Text);
+                    MessageBox.Show(msg, "Reservation Placed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    dlg.Close();
                 }
                 else
                 {
                     MessageBox.Show(msg, "Reservation Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-            }
+            };
+            dlg.Controls.Add(btnSubmit);
+
+            dlg.ShowDialog();
         }
     }
 }

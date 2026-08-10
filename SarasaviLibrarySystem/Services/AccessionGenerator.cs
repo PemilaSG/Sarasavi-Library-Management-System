@@ -1,5 +1,4 @@
 using System;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
 
 namespace SarasaviLibrarySystem.Services
@@ -13,7 +12,7 @@ namespace SarasaviLibrarySystem.Services
             using var cmd = conn.CreateCommand();
 
             cmd.CommandText = "SELECT AccessionCode FROM BookTitles WHERE ClassificationCode = @cls ORDER BY TitleId DESC;";
-            cmd.Parameters.AddWithValue("@cls", codeChar.ToString());
+            LibraryDbContext.AddParam(cmd, "@cls", codeChar.ToString());
 
             int maxIndex = 0;
             using var reader = cmd.ExecuteReader();

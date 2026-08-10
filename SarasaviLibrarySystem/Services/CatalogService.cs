@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
 using SarasaviLibrarySystem.Models;
 
@@ -8,155 +7,184 @@ namespace SarasaviLibrarySystem.Services
 {
     public class CatalogService
     {
-        public bool AddBookTitleWithCopies(string title, string author, string publisher, char classificationCode, int copyCount, bool refOnlyFirstCopy, out string resultMessage)
+        public bool AddBookTitleWithCopies(string title, string author, string publisher, char classificationCode, int copyCount, bool isFirstCopyReferenceOnly, out string resultMessage)
         {
-            if (copyCount < 1 || copyCount > 10)
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(author))
             {
-                resultMessage = "Copy count must be between 1 and 10 per book registration.";
+                resultMessage = "Title and Author are required fields.";
                 return false;
             }
 
-            string accessionCode = AccessionGenerator.GenerateNextAccessionCode(classificationCode);
-
-            using var conn = LibraryDbContext.GetConnection();
-            using var transaction = conn.BeginTransaction();
-
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO BookTitles (AccessionCode, Title, Author, Publisher, ClassificationCode)
-                               VALUES (@code, @title, @author, @pub, @cls);
-                               SELECT last_insert_rowid();";
-            cmd.Parameters.AddWithValue("@code", accessionCode);
-            cmd.Parameters.AddWithValue("@title", title);
-            cmd.Parameters.AddWithValue("@author", author);
-            cmd.Parameters.AddWithValue("@pub", publisher);
-            cmd.Parameters.AddWithValue("@cls", char.ToUpper(classificationCode).ToString());
-
-            long newTitleId = (long)(cmd.ExecuteScalar() ?? 0);
-
-            for (int i = 1; i <= copyCount; i++)
+            if (copyCount < 1 || copyCount > 10)
             {
-                string copyAcc = AccessionGenerator.GenerateCopyAccessionNumber(accessionCode, i);
-                string copyType = (i == 1 && refOnlyFirstCopy) ? "Reference Only" : "Borrowable";
-
-                using var copyCmd = conn.CreateCommand();
-                copyCmd.CommandText = "INSERT INTO BookCopies (AccessionNumber, TitleId, CopyType, Status) VALUES (@acc, @tid, @type, 'Available');";
-                copyCmd.Parameters.AddWithValue("@acc", copyAcc);
-                copyCmd.Parameters.AddWithValue("@tid", newTitleId);
-                copyCmd.Parameters.AddWithValue("@type", copyType);
-                copyCmd.ExecuteNonQuery();
+                resultMessage = "Copy count must be between 1 and 10.";
+                return false;
             }
 
-            transaction.Commit();
+            string baseCode = AccessionGenerator.GenerateNextAccessionCode(classificationCode);
 
-            resultMessage = $"[BOOK REGISTERED SUCCESSFUL] Registered '{title}' under Accession Code '{accessionCode}' with {copyCount} physical copies ({accessionCode}-01 to {accessionCode}-{copyCount:D2}).";
-            return true;
+            using var conn = LibraryDbContext.GetConnection();
+            using var tx = conn.BeginTransaction();
+
+            try
+            {
+                using (var checkCmd = conn.CreateCommand())
+                {
+                    checkCmd.Transaction = tx;
+                    checkCmd.CommandText = "SELECT COUNT(*) FROM BookTitles WHERE LOWER(Title) = LOWER(@title) AND LOWER(Author) = LOWER(@author);";
+                    LibraryDbContext.AddParam(checkCmd, "@title", title);
+                    LibraryDbContext.AddParam(checkCmd, "@author", author);
+                    long exists = Convert.ToInt64(checkCmd.ExecuteScalar() ?? 0);
+                    if (exists > 0)
+                    {
+                        resultMessage = $"Book '{title}' by {author} is already registered in the library.";
+                        tx.Rollback();
+                        return false;
+                    }
+                }
+
+                int newTitleId = 1;
+                using (var maxCmd = conn.CreateCommand())
+                {
+                    maxCmd.Transaction = tx;
+                    maxCmd.CommandText = "SELECT MAX(TitleId) FROM BookTitles;";
+                    object? val = maxCmd.ExecuteScalar();
+                    if (val != DBNull.Value && val != null) newTitleId = Convert.ToInt32(val) + 1;
+                }
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.Transaction = tx;
+                    cmd.CommandText = @"INSERT INTO BookTitles (TitleId, AccessionCode, Title, Author, Publisher, ClassificationCode) 
+                                       VALUES (@id, @code, @title, @author, @pub, @cls);";
+                    LibraryDbContext.AddParam(cmd, "@id", newTitleId);
+                    LibraryDbContext.AddParam(cmd, "@code", baseCode);
+                    LibraryDbContext.AddParam(cmd, "@title", title);
+                    LibraryDbContext.AddParam(cmd, "@author", author);
+                    LibraryDbContext.AddParam(cmd, "@pub", publisher);
+                    LibraryDbContext.AddParam(cmd, "@cls", classificationCode.ToString());
+                    cmd.ExecuteNonQuery();
+                }
+
+                for (int i = 1; i <= copyCount; i++)
+                {
+                    string copyCode = AccessionGenerator.GenerateCopyAccessionNumber(baseCode, i);
+                    string copyType = (i == 1 && isFirstCopyReferenceOnly) ? "Reference Only" : "Borrowable";
+
+                    using var copyCmd = conn.CreateCommand();
+                    copyCmd.Transaction = tx;
+                    copyCmd.CommandText = "INSERT INTO BookCopies (AccessionNumber, TitleId, CopyType, Status) VALUES (@acc, @tid, @type, 'Available');";
+                    LibraryDbContext.AddParam(copyCmd, "@acc", copyCode);
+                    LibraryDbContext.AddParam(copyCmd, "@tid", newTitleId);
+                    LibraryDbContext.AddParam(copyCmd, "@type", copyType);
+                    copyCmd.ExecuteNonQuery();
+                }
+
+                tx.Commit();
+                resultMessage = $"Successfully registered '{title}' with Accession Code {baseCode} and {copyCount} physical copies.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                tx.Rollback();
+                resultMessage = $"Database error: {ex.Message}";
+                return false;
+            }
         }
 
-        public List<BookInventoryItem> GetInventoryItems(string query)
+        public List<BookInventoryItem> GetInventoryItems(string searchQuery = "")
         {
             var list = new List<BookInventoryItem>();
             using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
 
-            cmd.CommandText = @"SELECT c.AccessionNumber, t.Title, t.Author, t.ClassificationCode, c.CopyType, c.Status
-                                FROM BookCopies c
-                                JOIN BookTitles t ON c.TitleId = t.TitleId
-                                WHERE LOWER(c.AccessionNumber) LIKE @q 
-                                   OR LOWER(t.AccessionCode) LIKE @q
-                                   OR LOWER(t.Title) LIKE @q 
-                                   OR LOWER(t.Author) LIKE @q;";
-            cmd.Parameters.AddWithValue("@q", $"%{query.Trim().ToLower()}%");
+            string sql = @"
+                SELECT c.AccessionNumber, t.Title, t.Author, t.ClassificationCode, c.Status, c.CopyType
+                FROM BookCopies c
+                JOIN BookTitles t ON c.TitleId = t.TitleId
+                WHERE 1=1 ";
 
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            if (!string.IsNullOrWhiteSpace(searchQuery))
             {
-                string accCode = reader.GetString(0);
-                string title = reader.GetString(1);
-                string author = reader.GetString(2);
-                string clsCode = reader.GetString(3);
-                string copyType = reader.GetString(4);
-                string rawStatus = reader.GetString(5);
+                sql += " AND (c.AccessionNumber LIKE @q OR t.Title LIKE @q OR t.Author LIKE @q) ";
+                LibraryDbContext.AddParam(cmd, "@q", $"%{searchQuery}%");
+            }
 
-                string category = clsCode.ToUpper() switch
-                {
-                    "C" => "Computing",
-                    "F" => "Fiction",
-                    "S" => "Science",
-                    "M" => "Management",
-                    _ => "General"
-                };
+            sql += " ORDER BY c.AccessionNumber ASC;";
+            cmd.CommandText = sql;
 
-                string displayStatus = rawStatus;
-                if (copyType.Equals("Reference Only", StringComparison.OrdinalIgnoreCase) && rawStatus.Equals("Available", StringComparison.OrdinalIgnoreCase))
-                {
-                    displayStatus = "Reference Only";
-                }
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                string acc = r.GetValue(0)?.ToString() ?? "";
+                string title = r.GetValue(1)?.ToString() ?? "";
+                string author = r.GetValue(2)?.ToString() ?? "";
+                string clsCode = r.GetValue(3)?.ToString() ?? "C";
+                string status = r.GetValue(4)?.ToString() ?? "Available";
+                string copyType = r.GetValue(5)?.ToString() ?? "Borrowable";
+
+                string categoryName = GetCategoryName(clsCode.Length > 0 ? clsCode[0] : 'C');
+                string displayStatus = (status == "Available" && copyType == "Reference Only") ? "Reference Only" : status;
 
                 list.Add(new BookInventoryItem
                 {
-                    AccessionCode = accCode,
+                    AccessionCode = acc,
                     Title = title,
                     Author = author,
-                    Category = category,
+                    Category = categoryName,
                     Status = displayStatus
                 });
             }
+
             return list;
         }
 
-        public List<BookCopy> SearchCatalog(string query)
+        public (int totalTitles, int availableCopies, int activeLoans, int overdueCount) GetDashboardStats()
         {
-            var list = new List<BookCopy>();
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
 
-            cmd.CommandText = @"SELECT c.AccessionNumber, c.TitleId, t.Title, t.Author, c.CopyType, c.Status
-                                FROM BookCopies c
-                                JOIN BookTitles t ON c.TitleId = t.TitleId
-                                WHERE LOWER(c.AccessionNumber) LIKE @q 
-                                   OR LOWER(t.AccessionCode) LIKE @q
-                                   OR LOWER(t.Title) LIKE @q 
-                                   OR LOWER(t.Author) LIKE @q;";
-            cmd.Parameters.AddWithValue("@q", $"%{query.Trim().ToLower()}%");
-
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            int totalTitles = 0;
+            using (var cmd = conn.CreateCommand())
             {
-                list.Add(new BookCopy
-                {
-                    AccessionNumber = reader.GetString(0),
-                    TitleId = reader.GetInt32(1),
-                    TitleName = reader.GetString(2),
-                    AuthorName = reader.GetString(3),
-                    CopyType = reader.GetString(4),
-                    Status = reader.GetString(5)
-                });
+                cmd.CommandText = "SELECT COUNT(*) FROM BookTitles;";
+                totalTitles = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
             }
-            return list;
+
+            int availableCopies = 0;
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM BookCopies WHERE Status = 'Available';";
+                availableCopies = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+            }
+
+            int activeLoans = 0;
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE Status = 'Active';";
+                activeLoans = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+            }
+
+            int overdueCount = 0;
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE Status = 'Active' AND DueDate < @now;";
+                LibraryDbContext.AddParam(cmd, "@now", DateTime.Now);
+                overdueCount = Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+            }
+
+            return (totalTitles, availableCopies, activeLoans, overdueCount);
         }
 
-        public (int totalTitles, int totalCopies, int availableCopies, int activeLoans, int overdueCount, int totalBorrowers) GetDashboardStats()
+        private string GetCategoryName(char clsCode)
         {
-            using var conn = LibraryDbContext.GetConnection();
-
-            int totalTitles = Convert.ToInt32(ExecuteScalarQuery(conn, "SELECT COUNT(*) FROM BookTitles;"));
-            int totalCopies = Convert.ToInt32(ExecuteScalarQuery(conn, "SELECT COUNT(*) FROM BookCopies;"));
-            int availableCopies = Convert.ToInt32(ExecuteScalarQuery(conn, "SELECT COUNT(*) FROM BookCopies WHERE Status = 'Available';"));
-            int activeLoans = Convert.ToInt32(ExecuteScalarQuery(conn, "SELECT COUNT(*) FROM LoanRecords WHERE Status = 'Active';"));
-            
-            int overdueCount = Convert.ToInt32(ExecuteScalarQuery(conn, 
-                "SELECT COUNT(*) FROM LoanRecords WHERE Status = 'Active' AND DateTime(DueDate) < DateTime('now');"));
-            
-            int totalBorrowers = Convert.ToInt32(ExecuteScalarQuery(conn, "SELECT COUNT(*) FROM Borrowers;"));
-
-            return (totalTitles, totalCopies, availableCopies, activeLoans, overdueCount, totalBorrowers);
-        }
-
-        private object ExecuteScalarQuery(SqliteConnection conn, string query)
-        {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = query;
-            return cmd.ExecuteScalar() ?? 0;
+            return char.ToUpper(clsCode) switch
+            {
+                'C' => "Computing",
+                'F' => "Fiction",
+                'S' => "Science",
+                'M' => "Management",
+                _ => "General"
+            };
         }
     }
 }

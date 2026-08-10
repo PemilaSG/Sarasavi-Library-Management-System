@@ -8,8 +8,9 @@ namespace SarasaviLibrarySystem.UI.Views
     public class ReturnCounterView : UserControl
     {
         private TextBox txtCopyCode = null!;
-        private Button btnReturn = null!;
-        private Label lblLastReturnStatus = null!;
+        private Button btnProcessReturn = null!;
+        private Button btnTestAlert = null!;
+        private Label lblStatusMsg = null!;
 
         public ReturnCounterView()
         {
@@ -19,11 +20,11 @@ namespace SarasaviLibrarySystem.UI.Views
         private void InitializeComponent()
         {
             this.Dock = DockStyle.Fill;
-            this.BackColor = Color.FromArgb(24, 27, 36);
+            this.BackColor = Color.FromArgb(18, 22, 33);
 
             var lblHeader = new Label
             {
-                Text = "Book Return Counter & Reservation Queue Alert",
+                Text = "Book Return Counter",
                 Font = new Font("Segoe UI", 18F, FontStyle.Bold),
                 ForeColor = Color.White,
                 Location = new Point(25, 20),
@@ -31,185 +32,190 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             this.Controls.Add(lblHeader);
 
-            var pnlForm = new Panel
+            var pnlReturnCard = new Panel
             {
-                Location = new Point(25, 70),
-                Size = new Size(600, 580),
-                BackColor = Color.FromArgb(34, 39, 53)
+                Location = new Point(25, 75),
+                Size = new Size(600, 320),
+                BackColor = Color.FromArgb(26, 32, 46)
             };
 
-            pnlForm.Controls.Add(new Label
+            pnlReturnCard.Controls.Add(new Label
             {
-                Text = "Scan / Enter Copy Accession Number:",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Text = "Scan or Enter Returned Copy Accession Code:",
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = Color.Gainsboro,
-                Location = new Point(25, 25),
+                Location = new Point(20, 25),
                 AutoSize = true
             });
 
             txtCopyCode = new TextBox
             {
-                Location = new Point(25, 60),
-                Size = new Size(550, 35),
+                Location = new Point(20, 60),
+                Size = new Size(560, 34),
                 Font = new Font("Segoe UI", 12F),
-                BackColor = Color.FromArgb(45, 52, 71),
+                BackColor = Color.FromArgb(36, 44, 62),
                 ForeColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
                 Text = "C0002-01"
             };
-            pnlForm.Controls.Add(txtCopyCode);
+            pnlReturnCard.Controls.Add(txtCopyCode);
 
-            btnReturn = new Button
+            btnProcessReturn = new Button
             {
-                Text = "Process Return Book",
-                Location = new Point(25, 115),
-                Size = new Size(550, 50),
+                Text = "Process Return",
+                Location = new Point(20, 110),
+                Size = new Size(270, 45),
                 BackColor = Color.FromArgb(39, 174, 96),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
-            btnReturn.FlatAppearance.BorderSize = 0;
-            btnReturn.Click += BtnReturn_Click;
-            pnlForm.Controls.Add(btnReturn);
+            btnProcessReturn.FlatAppearance.BorderSize = 0;
+            btnProcessReturn.Click += BtnProcessReturn_Click;
+            pnlReturnCard.Controls.Add(btnProcessReturn);
 
-            lblLastReturnStatus = new Label
+            btnTestAlert = new Button
             {
-                Text = "Status: Ready to accept book returns.",
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-                ForeColor = Color.Gainsboro,
-                Location = new Point(25, 185),
-                Size = new Size(550, 80)
-            };
-            pnlForm.Controls.Add(lblLastReturnStatus);
-
-            var pnlInfo = new Panel
-            {
-                Location = new Point(25, 280),
-                Size = new Size(550, 270),
-                BackColor = Color.FromArgb(24, 27, 36)
-            };
-
-            pnlInfo.Controls.Add(new Label
-            {
-                Text = "Automated Reservation Queue Handling:\n\n" +
-                       "1. Librarian enters returned copy Accession Number.\n" +
-                       "2. Active loan record is closed and marked Returned.\n" +
-                       "3. System checks for pending title reservations (FIFO queue).\n" +
-                       "4. IF RESERVED: Copy status set to 'Reserved' and a POPUP ALERT notifies librarian to SET ASIDE book for reserving member.",
-                Font = new Font("Segoe UI", 10.5F),
-                ForeColor = Color.Gainsboro,
-                Location = new Point(20, 20),
-                Size = new Size(510, 230)
-            });
-
-            pnlForm.Controls.Add(pnlInfo);
-            this.Controls.Add(pnlForm);
-
-            var pnlSample = new Panel
-            {
-                Location = new Point(650, 70),
-                Size = new Size(550, 580),
-                BackColor = Color.FromArgb(34, 39, 53)
-            };
-
-            pnlSample.Controls.Add(new Label
-            {
-                Text = "Reservation Alert Popup Preview Demo",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                ForeColor = Color.Gainsboro,
-                Location = new Point(20, 20),
-                AutoSize = true
-            });
-
-            var btnTestAlert = new Button
-            {
-                Text = "Test Reservation Popup Alert",
-                Location = new Point(20, 60),
-                Size = new Size(510, 45),
+                Text = "Test Reservation Alert Modal Popup",
+                Location = new Point(310, 110),
+                Size = new Size(270, 45),
                 BackColor = Color.FromArgb(230, 126, 34),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
             btnTestAlert.FlatAppearance.BorderSize = 0;
-            btnTestAlert.Click += (s, e) => ShowReservationPopup("🔔 [RESERVATION SET-ASIDE ALERT]\nBook Title: 'C# 10 and .NET 6 Modern Cross-Platform Development'\nCopy Returned: C0002-01\n\n⚠️ THIS TITLE HAS AN ACTIVE RESERVATION!\nPlease SET ASIDE this book for Member: Nimali Fernando (M-1002)\nReservation Request Date: 2026-08-07");
-            pnlSample.Controls.Add(btnTestAlert);
+            btnTestAlert.Click += (s, e) => ShowReservationAlertModal("C0002-01", "C# 10 and .NET 6 Modern Cross-Platform Development", "M-1002 (Nimali Fernando)");
+            pnlReturnCard.Controls.Add(btnTestAlert);
 
-            this.Controls.Add(pnlSample);
+            lblStatusMsg = new Label
+            {
+                Text = "Ready to accept returned book copies.",
+                Font = new Font("Segoe UI", 10.5F),
+                ForeColor = Color.Gray,
+                Location = new Point(20, 175),
+                Size = new Size(560, 120)
+            };
+            pnlReturnCard.Controls.Add(lblStatusMsg);
+
+            this.Controls.Add(pnlReturnCard);
+
+            var pnlInstructions = new Panel
+            {
+                Location = new Point(650, 75),
+                Size = new Size(500, 320),
+                BackColor = Color.FromArgb(26, 32, 46)
+            };
+
+            pnlInstructions.Controls.Add(new Label
+            {
+                Text = "Return Counter Rules & Guidance",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(20, 20),
+                AutoSize = true
+            });
+
+            pnlInstructions.Controls.Add(new Label
+            {
+                Text = "• Scanning a copy marks its active loan as RETURNED.\n\n" +
+                       "• The FIFO Reservation Queue is automatically scanned.\n\n" +
+                       "• If a reservation exists, a High-Visibility Alert Modal pops up instructing the librarian to place the copy in the Set-Aside shelf.\n\n" +
+                       "• The reservation status is updated to 'Fulfilled'.",
+                Font = new Font("Segoe UI", 10F),
+                ForeColor = Color.Gainsboro,
+                Location = new Point(20, 60),
+                Size = new Size(460, 230)
+            });
+
+            this.Controls.Add(pnlInstructions);
         }
 
-        private void BtnReturn_Click(object? sender, EventArgs e)
+        private void BtnProcessReturn_Click(object? sender, EventArgs e)
         {
             string copyCode = txtCopyCode.Text.Trim();
-            if (string.IsNullOrWhiteSpace(copyCode))
-            {
-                MessageBox.Show("Please enter a valid Copy Accession Number.", "Validation Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
             var service = new ReturnService();
-            if (service.ProcessReturn(copyCode, out string msg, out string? resAlert))
-            {
-                lblLastReturnStatus.Text = msg;
-                lblLastReturnStatus.ForeColor = Color.FromArgb(46, 204, 113);
 
-                if (resAlert != null)
+            if (service.ProcessReturn(copyCode, out string msg, out bool isReserved, out string resUserNum))
+            {
+                lblStatusMsg.Text = msg;
+                lblStatusMsg.ForeColor = Color.FromArgb(46, 204, 113);
+
+                if (isReserved)
                 {
-                    ShowReservationPopup(resAlert);
-                }
-                else
-                {
-                    MessageBox.Show(msg, "Return Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    var catalogService = new CatalogService();
+                    var items = catalogService.GetInventoryItems(copyCode);
+                    string title = items.Count > 0 ? items[0].Title : "Book Title";
+
+                    ShowReservationAlertModal(copyCode, title, resUserNum);
                 }
             }
             else
             {
-                lblLastReturnStatus.Text = msg;
-                lblLastReturnStatus.ForeColor = Color.FromArgb(192, 57, 43);
-                MessageBox.Show(msg, "Return Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                lblStatusMsg.Text = msg;
+                lblStatusMsg.ForeColor = Color.FromArgb(231, 76, 60);
             }
         }
 
-        private void ShowReservationPopup(string alertMessage)
+        private void ShowReservationAlertModal(string copyCode, string title, string memberInfo)
         {
-            using var alertDlg = new Form
+            using var dlg = new Form
             {
-                Text = "⚠️ RESERVATION SET-ASIDE ALERT",
-                Size = new Size(550, 360),
+                Text = "⚠️ RESERVATION SET-ASIDE NOTIFICATION ALERT",
+                Size = new Size(550, 320),
                 StartPosition = FormStartPosition.CenterParent,
-                BackColor = Color.FromArgb(34, 39, 53),
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 MaximizeBox = false,
-                MinimizeBox = false
+                MinimizeBox = false,
+                BackColor = Color.FromArgb(26, 32, 46)
             };
 
-            var lblMsg = new Label
+            var pnlTop = new Panel
             {
-                Text = alertMessage,
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(241, 196, 15),
-                Location = new Point(25, 25),
-                Size = new Size(480, 220)
+                Dock = DockStyle.Top,
+                Height = 60,
+                BackColor = Color.FromArgb(230, 126, 34)
             };
-
-            var btnAck = new Button
+            pnlTop.Controls.Add(new Label
             {
-                Text = "Confirm & Set Aside Book",
-                Location = new Point(160, 260),
-                Size = new Size(220, 40),
-                BackColor = Color.FromArgb(39, 174, 96),
+                Text = "🔔 RESERVED BOOK - DO NOT PUT ON PUBLIC SHELF",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
-                FlatStyle = FlatStyle.Flat,
-                DialogResult = DialogResult.OK
-            };
+                Location = new Point(20, 18),
+                AutoSize = true
+            });
+            dlg.Controls.Add(pnlTop);
 
-            alertDlg.Controls.Add(lblMsg);
-            alertDlg.Controls.Add(btnAck);
-            alertDlg.ShowDialog();
+            var lblBody = new Label
+            {
+                Text = $"Returned Copy Accession Code: {copyCode}\n" +
+                       $"Book Title: {title}\n\n" +
+                       $"RESERVED FOR MEMBER: {memberInfo}\n\n" +
+                       $"Action Required: Please place this physical copy in the Reserved Set-Aside Shelf immediately.",
+                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+                ForeColor = Color.Gainsboro,
+                Location = new Point(25, 80),
+                Size = new Size(480, 140)
+            };
+            dlg.Controls.Add(lblBody);
+
+            var btnOk = new Button
+            {
+                Text = "Acknowledge & Set Aside",
+                DialogResult = DialogResult.OK,
+                Location = new Point(175, 230),
+                Size = new Size(200, 40),
+                BackColor = Color.FromArgb(41, 128, 185),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat
+            };
+            btnOk.FlatAppearance.BorderSize = 0;
+            dlg.Controls.Add(btnOk);
+
+            dlg.ShowDialog();
         }
     }
 }
