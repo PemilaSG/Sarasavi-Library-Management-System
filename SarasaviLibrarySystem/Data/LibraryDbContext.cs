@@ -1,87 +1,157 @@
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.IO;
 using Microsoft.Data.Sqlite;
+using MySql.Data.MySqlClient;
 using SarasaviLibrarySystem.Models;
 
 namespace SarasaviLibrarySystem.Data
 {
     public static class LibraryDbContext
     {
-        private static readonly string DbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sarasavi_library.db");
-        private static readonly string ConnectionString = $"Data Source={DbPath}";
+        public static bool IsMySqlActive { get; private set; } = false;
 
-        public static SqliteConnection GetConnection()
+        private static readonly string MySqlConnectionString = "Server=localhost;Database=sarasavi_library;Uid=root;Pwd=;";
+        private static readonly string SqlitePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sarasavi_library.db");
+        private static readonly string SqliteConnectionString = $"Data Source={SqlitePath}";
+
+        public static DbConnection GetConnection()
         {
-            var conn = new SqliteConnection(ConnectionString);
-            conn.Open();
-            return conn;
+            if (IsMySqlActive)
+            {
+                var conn = new MySqlConnection(MySqlConnectionString);
+                conn.Open();
+                return conn;
+            }
+            else
+            {
+                var conn = new SqliteConnection(SqliteConnectionString);
+                conn.Open();
+                return conn;
+            }
         }
 
         public static void InitializeDatabase()
         {
-            using var conn = GetConnection();
-            using var cmd = conn.CreateCommand();
+            try
+            {
+                using var conn = new MySqlConnection(MySqlConnectionString);
+                conn.Open();
+                IsMySqlActive = true;
 
-            cmd.CommandText = @"
-                CREATE TABLE IF NOT EXISTS BookTitles (
-                    TitleId INTEGER PRIMARY KEY AUTOINCREMENT,
-                    AccessionCode TEXT UNIQUE NOT NULL,
-                    Title TEXT NOT NULL,
-                    Author TEXT NOT NULL,
-                    Publisher TEXT NOT NULL,
-                    ClassificationCode TEXT NOT NULL
-                );
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS BookTitles (
+                        TitleId INT AUTO_INCREMENT PRIMARY KEY,
+                        AccessionCode VARCHAR(10) UNIQUE NOT NULL,
+                        Title VARCHAR(255) NOT NULL,
+                        Author VARCHAR(255) NOT NULL,
+                        Publisher VARCHAR(255) NOT NULL,
+                        ClassificationCode CHAR(1) NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-                CREATE TABLE IF NOT EXISTS BookCopies (
-                    AccessionNumber TEXT PRIMARY KEY,
-                    TitleId INTEGER NOT NULL,
-                    CopyType TEXT NOT NULL,
-                    Status TEXT NOT NULL,
-                    FOREIGN KEY (TitleId) REFERENCES BookTitles(TitleId)
-                );
+                    CREATE TABLE IF NOT EXISTS BookCopies (
+                        AccessionNumber VARCHAR(20) PRIMARY KEY,
+                        TitleId INT NOT NULL,
+                        CopyType VARCHAR(20) NOT NULL DEFAULT 'Borrowable',
+                        Status VARCHAR(20) NOT NULL DEFAULT 'Available'
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-                CREATE TABLE IF NOT EXISTS Borrowers (
-                    UserNumber TEXT PRIMARY KEY,
-                    Name TEXT NOT NULL,
-                    Sex TEXT NOT NULL,
-                    NIC TEXT NOT NULL,
-                    Address TEXT NOT NULL,
-                    RegistrationDate TEXT NOT NULL
-                );
+                    CREATE TABLE IF NOT EXISTS Borrowers (
+                        UserNumber VARCHAR(20) PRIMARY KEY,
+                        Name VARCHAR(255) NOT NULL,
+                        Sex VARCHAR(10) NOT NULL DEFAULT 'Male',
+                        NIC VARCHAR(20) NOT NULL UNIQUE,
+                        Address TEXT NOT NULL,
+                        RegistrationDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-                CREATE TABLE IF NOT EXISTS LoanRecords (
-                    LoanId INTEGER PRIMARY KEY AUTOINCREMENT,
-                    CopyAccessionNumber TEXT NOT NULL,
-                    UserNumber TEXT NOT NULL,
-                    IssueDate TEXT NOT NULL,
-                    DueDate TEXT NOT NULL,
-                    ReturnDate TEXT,
-                    Status TEXT NOT NULL,
-                    FOREIGN KEY (CopyAccessionNumber) REFERENCES BookCopies(AccessionNumber),
-                    FOREIGN KEY (UserNumber) REFERENCES Borrowers(UserNumber)
-                );
+                    CREATE TABLE IF NOT EXISTS LoanRecords (
+                        LoanId INT AUTO_INCREMENT PRIMARY KEY,
+                        CopyAccessionNumber VARCHAR(20) NOT NULL,
+                        UserNumber VARCHAR(20) NOT NULL,
+                        IssueDate DATETIME NOT NULL,
+                        DueDate DATETIME NOT NULL,
+                        ReturnDate DATETIME NULL,
+                        Status VARCHAR(20) NOT NULL DEFAULT 'Active'
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-                CREATE TABLE IF NOT EXISTS ReservationRecords (
-                    ReservationId INTEGER PRIMARY KEY AUTOINCREMENT,
-                    TitleId INTEGER NOT NULL,
-                    UserNumber TEXT NOT NULL,
-                    RequestDate TEXT NOT NULL,
-                    Status TEXT NOT NULL,
-                    FOREIGN KEY (TitleId) REFERENCES BookTitles(TitleId),
-                    FOREIGN KEY (UserNumber) REFERENCES Borrowers(UserNumber)
-                );
-            ";
-            cmd.ExecuteNonQuery();
+                    CREATE TABLE IF NOT EXISTS ReservationRecords (
+                        ReservationId INT AUTO_INCREMENT PRIMARY KEY,
+                        TitleId INT NOT NULL,
+                        UserNumber VARCHAR(20) NOT NULL,
+                        RequestDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        Status VARCHAR(20) NOT NULL DEFAULT 'Pending'
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+                ";
+                cmd.ExecuteNonQuery();
+                SeedSampleData(conn);
+                return;
+            }
+            catch
+            {
+                IsMySqlActive = false;
+            }
 
-            SeedSampleData(conn);
+            using (var conn = new SqliteConnection(SqliteConnectionString))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS BookTitles (
+                        TitleId INTEGER PRIMARY KEY AUTOINCREMENT,
+                        AccessionCode TEXT UNIQUE NOT NULL,
+                        Title TEXT NOT NULL,
+                        Author TEXT NOT NULL,
+                        Publisher TEXT NOT NULL,
+                        ClassificationCode TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS BookCopies (
+                        AccessionNumber TEXT PRIMARY KEY,
+                        TitleId INTEGER NOT NULL,
+                        CopyType TEXT NOT NULL,
+                        Status TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS Borrowers (
+                        UserNumber TEXT PRIMARY KEY,
+                        Name TEXT NOT NULL,
+                        Sex TEXT NOT NULL,
+                        NIC TEXT NOT NULL,
+                        Address TEXT NOT NULL,
+                        RegistrationDate TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS LoanRecords (
+                        LoanId INTEGER PRIMARY KEY AUTOINCREMENT,
+                        CopyAccessionNumber TEXT NOT NULL,
+                        UserNumber TEXT NOT NULL,
+                        IssueDate TEXT NOT NULL,
+                        DueDate TEXT NOT NULL,
+                        ReturnDate TEXT,
+                        Status TEXT NOT NULL
+                    );
+
+                    CREATE TABLE IF NOT EXISTS ReservationRecords (
+                        ReservationId INTEGER PRIMARY KEY AUTOINCREMENT,
+                        TitleId INTEGER NOT NULL,
+                        UserNumber TEXT NOT NULL,
+                        RequestDate TEXT NOT NULL,
+                        Status TEXT NOT NULL
+                    );
+                ";
+                cmd.ExecuteNonQuery();
+                SeedSampleData(conn);
+            }
         }
 
-        private static void SeedSampleData(SqliteConnection conn)
+        private static void SeedSampleData(DbConnection conn)
         {
             using var checkCmd = conn.CreateCommand();
             checkCmd.CommandText = "SELECT COUNT(*) FROM BookTitles;";
-            long titleCount = (long)(checkCmd.ExecuteScalar() ?? 0);
+            long titleCount = Convert.ToInt64(checkCmd.ExecuteScalar() ?? 0);
             if (titleCount > 0) return;
 
             using var transaction = conn.BeginTransaction();
@@ -99,12 +169,12 @@ namespace SarasaviLibrarySystem.Data
             {
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "INSERT INTO Borrowers (UserNumber, Name, Sex, NIC, Address, RegistrationDate) VALUES (@id, @name, @sex, @nic, @addr, @reg);";
-                cmd.Parameters.AddWithValue("@id", b.id);
-                cmd.Parameters.AddWithValue("@name", b.name);
-                cmd.Parameters.AddWithValue("@sex", b.sex);
-                cmd.Parameters.AddWithValue("@nic", b.nic);
-                cmd.Parameters.AddWithValue("@addr", b.addr);
-                cmd.Parameters.AddWithValue("@reg", DateTime.Now.AddDays(-30).ToString("o"));
+                AddParam(cmd, "@id", b.id);
+                AddParam(cmd, "@name", b.name);
+                AddParam(cmd, "@sex", b.sex);
+                AddParam(cmd, "@nic", b.nic);
+                AddParam(cmd, "@addr", b.addr);
+                AddParam(cmd, "@reg", DateTime.Now.AddDays(-30).ToString("o"));
                 cmd.ExecuteNonQuery();
             }
 
@@ -125,12 +195,12 @@ namespace SarasaviLibrarySystem.Data
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"INSERT INTO BookTitles (TitleId, AccessionCode, Title, Author, Publisher, ClassificationCode) 
                                    VALUES (@id, @code, @title, @author, @pub, @cls);";
-                cmd.Parameters.AddWithValue("@id", titleIdCounter);
-                cmd.Parameters.AddWithValue("@code", t.code);
-                cmd.Parameters.AddWithValue("@title", t.title);
-                cmd.Parameters.AddWithValue("@author", t.author);
-                cmd.Parameters.AddWithValue("@pub", t.pub);
-                cmd.Parameters.AddWithValue("@cls", t.cls.ToString());
+                AddParam(cmd, "@id", titleIdCounter);
+                AddParam(cmd, "@code", t.code);
+                AddParam(cmd, "@title", t.title);
+                AddParam(cmd, "@author", t.author);
+                AddParam(cmd, "@pub", t.pub);
+                AddParam(cmd, "@cls", t.cls.ToString());
                 cmd.ExecuteNonQuery();
 
                 for (int i = 1; i <= t.copies; i++)
@@ -140,9 +210,9 @@ namespace SarasaviLibrarySystem.Data
 
                     using var copyCmd = conn.CreateCommand();
                     copyCmd.CommandText = "INSERT INTO BookCopies (AccessionNumber, TitleId, CopyType, Status) VALUES (@acc, @tid, @type, 'Available');";
-                    copyCmd.Parameters.AddWithValue("@acc", copyAcc);
-                    copyCmd.Parameters.AddWithValue("@tid", titleIdCounter);
-                    copyCmd.Parameters.AddWithValue("@type", copyType);
+                    AddParam(copyCmd, "@acc", copyAcc);
+                    AddParam(copyCmd, "@tid", titleIdCounter);
+                    AddParam(copyCmd, "@type", copyType);
                     copyCmd.ExecuteNonQuery();
                 }
 
@@ -153,8 +223,8 @@ namespace SarasaviLibrarySystem.Data
             {
                 lCmd.CommandText = @"INSERT INTO LoanRecords (CopyAccessionNumber, UserNumber, IssueDate, DueDate, Status)
                                      VALUES ('C0002-01', 'M-1001', @iss, @due, 'Active');";
-                lCmd.Parameters.AddWithValue("@iss", DateTime.Now.AddDays(-5).ToString("o"));
-                lCmd.Parameters.AddWithValue("@due", DateTime.Now.AddDays(9).ToString("o"));
+                AddParam(lCmd, "@iss", DateTime.Now.AddDays(-5).ToString("o"));
+                AddParam(lCmd, "@due", DateTime.Now.AddDays(9).ToString("o"));
                 lCmd.ExecuteNonQuery();
 
                 using var statusCmd = conn.CreateCommand();
@@ -166,8 +236,8 @@ namespace SarasaviLibrarySystem.Data
             {
                 lCmd2.CommandText = @"INSERT INTO LoanRecords (CopyAccessionNumber, UserNumber, IssueDate, DueDate, Status)
                                       VALUES ('F0001-01', 'M-1003', @iss, @due, 'Active');";
-                lCmd2.Parameters.AddWithValue("@iss", DateTime.Now.AddDays(-20).ToString("o"));
-                lCmd2.Parameters.AddWithValue("@due", DateTime.Now.AddDays(-6).ToString("o"));
+                AddParam(lCmd2, "@iss", DateTime.Now.AddDays(-20).ToString("o"));
+                AddParam(lCmd2, "@due", DateTime.Now.AddDays(-6).ToString("o"));
                 lCmd2.ExecuteNonQuery();
 
                 using var statusCmd = conn.CreateCommand();
@@ -179,11 +249,19 @@ namespace SarasaviLibrarySystem.Data
             {
                 rCmd.CommandText = @"INSERT INTO ReservationRecords (TitleId, UserNumber, RequestDate, Status)
                                      VALUES (2, 'M-1002', @req, 'Pending');";
-                rCmd.Parameters.AddWithValue("@req", DateTime.Now.AddDays(-2).ToString("o"));
+                AddParam(rCmd, "@req", DateTime.Now.AddDays(-2).ToString("o"));
                 rCmd.ExecuteNonQuery();
             }
 
             transaction.Commit();
+        }
+
+        public static void AddParam(DbCommand cmd, string name, object value)
+        {
+            var param = cmd.CreateParameter();
+            param.ParameterName = name;
+            param.Value = value ?? DBNull.Value;
+            cmd.Parameters.Add(param);
         }
     }
 }

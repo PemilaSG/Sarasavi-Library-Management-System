@@ -1,5 +1,4 @@
 using System;
-using Microsoft.Data.Sqlite;
 using SarasaviLibrarySystem.Data;
 using SarasaviLibrarySystem.Models;
 
@@ -7,95 +6,112 @@ namespace SarasaviLibrarySystem.Services
 {
     public class LoanService
     {
-        public bool IssueLoan(string userNumber, string copyAccessionNumber, out string resultMessage)
+        public bool IssueLoan(string userNumber, string copyAccessionNumber, out string message)
         {
-            using var conn = LibraryDbContext.GetConnection();
-
             var borrowerService = new BorrowerService();
             var borrower = borrowerService.GetBorrowerDetails(userNumber);
 
             if (borrower == null)
             {
-                resultMessage = $"[CHECKOUT FAILED] Borrower '{userNumber}' does not exist in the system.";
+                message = "Borrower with specified User Number was not found.";
                 return false;
             }
 
-            if (!borrower.CanBorrow(out string ineligibleReason))
+            if (!borrower.CanBorrow(out string borrowerBlockReason))
             {
-                resultMessage = $"[CHECKOUT BLOCKED] {ineligibleReason}";
+                message = borrowerBlockReason;
                 return false;
             }
 
-            using var copyCmd = conn.CreateCommand();
-            copyCmd.CommandText = @"SELECT c.AccessionNumber, c.CopyType, c.Status, t.Title 
-                                   FROM BookCopies c
-                                   JOIN BookTitles t ON c.TitleId = t.TitleId
-                                   WHERE c.AccessionNumber = @acc;";
-            copyCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
+            using var conn = LibraryDbContext.GetConnection();
+            using var cmd = conn.CreateCommand();
 
-            using var reader = copyCmd.ExecuteReader();
-            if (!reader.Read())
+            cmd.CommandText = "SELECT Status, CopyType FROM BookCopies WHERE AccessionNumber = @acc;";
+            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
+
+            string copyStatus = "";
+            string copyType = "";
+            using (var reader = cmd.ExecuteReader())
             {
-                resultMessage = $"[CHECKOUT FAILED] Book Copy '{copyAccessionNumber}' not found.";
-                return false;
+                if (reader.Read())
+                {
+                    copyStatus = reader.GetValue(0)?.ToString() ?? "";
+                    copyType = reader.GetValue(1)?.ToString() ?? "";
+                }
+                else
+                {
+                    message = $"Book Copy with accession number '{copyAccessionNumber}' does not exist.";
+                    return false;
+                }
             }
-
-            string copyType = reader.GetString(1);
-            string copyStatus = reader.GetString(2);
-            string bookTitle = reader.GetString(3);
 
             if (copyType.Equals("Reference Only", StringComparison.OrdinalIgnoreCase))
             {
-                resultMessage = $"[CHECKOUT BLOCKED] Copy '{copyAccessionNumber}' ({bookTitle}) is marked REFERENCE ONLY and cannot be issued for loan.";
+                message = $"Copy '{copyAccessionNumber}' is marked REFERENCE ONLY and cannot be checked out.";
                 return false;
             }
 
             if (!copyStatus.Equals("Available", StringComparison.OrdinalIgnoreCase))
             {
-                resultMessage = $"[CHECKOUT BLOCKED] Copy '{copyAccessionNumber}' is currently '{copyStatus}' and unavailable for checkout.";
+                message = $"Copy '{copyAccessionNumber}' is currently unavailable (Status: {copyStatus}).";
                 return false;
             }
 
             DateTime issueDate = DateTime.Now;
             DateTime dueDate = issueDate.AddDays(14);
 
-            using var transaction = conn.BeginTransaction();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                using (var insertCmd = conn.CreateCommand())
+                {
+                    insertCmd.Transaction = tx;
+                    insertCmd.CommandText = @"INSERT INTO LoanRecords (CopyAccessionNumber, UserNumber, IssueDate, DueDate, Status)
+                                              VALUES (@acc, @unum, @iss, @due, 'Active');";
+                    LibraryDbContext.AddParam(insertCmd, "@acc", copyAccessionNumber);
+                    LibraryDbContext.AddParam(insertCmd, "@unum", userNumber);
+                    LibraryDbContext.AddParam(insertCmd, "@iss", issueDate);
+                    LibraryDbContext.AddParam(insertCmd, "@due", dueDate);
+                    insertCmd.ExecuteNonQuery();
+                }
 
-            using var insertCmd = conn.CreateCommand();
-            insertCmd.CommandText = @"INSERT INTO LoanRecords (CopyAccessionNumber, UserNumber, IssueDate, DueDate, Status)
-                                      VALUES (@acc, @user, @iss, @due, 'Active');";
-            insertCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
-            insertCmd.Parameters.AddWithValue("@user", userNumber);
-            insertCmd.Parameters.AddWithValue("@iss", issueDate.ToString("o"));
-            insertCmd.Parameters.AddWithValue("@due", dueDate.ToString("o"));
-            insertCmd.ExecuteNonQuery();
+                using (var updateCopyCmd = conn.CreateCommand())
+                {
+                    updateCopyCmd.Transaction = tx;
+                    updateCopyCmd.CommandText = "UPDATE BookCopies SET Status = 'Borrowed' WHERE AccessionNumber = @acc;";
+                    LibraryDbContext.AddParam(updateCopyCmd, "@acc", copyAccessionNumber);
+                    updateCopyCmd.ExecuteNonQuery();
+                }
 
-            using var updateCopyCmd = conn.CreateCommand();
-            updateCopyCmd.CommandText = "UPDATE BookCopies SET Status = 'Borrowed' WHERE AccessionNumber = @acc;";
-            updateCopyCmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
-            updateCopyCmd.ExecuteNonQuery();
-
-            transaction.Commit();
-
-            resultMessage = $"[CHECKOUT SUCCESSFUL] Issued '{bookTitle}' ({copyAccessionNumber}) to {borrower.Name} ({userNumber}). Due Date: {dueDate:yyyy-MM-dd} (14 Days).";
-            return true;
+                tx.Commit();
+                message = $"Loan issued successfully! Return Due Date is {dueDate:yyyy-MM-dd} (14 days).";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                tx.Rollback();
+                message = $"Loan processing failed due to database error: {ex.Message}";
+                return false;
+            }
         }
 
         public bool CancelLoanRequest(string copyAccessionNumber, out string message)
         {
             using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "UPDATE BookCopies SET Status = 'Available' WHERE AccessionNumber = @acc AND Status = 'Borrowed';";
-            cmd.Parameters.AddWithValue("@acc", copyAccessionNumber);
-            int rows = cmd.ExecuteNonQuery();
 
-            if (rows > 0)
+            cmd.CommandText = "SELECT Status FROM BookCopies WHERE AccessionNumber = @acc;";
+            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
+
+            object? statusObj = cmd.ExecuteScalar();
+            if (statusObj == null)
             {
-                message = $"Loan request for copy {copyAccessionNumber} cancelled by librarian.";
-                return true;
+                message = "Book copy not found.";
+                return false;
             }
-            message = "Loan request cancellation failed or copy was not checked out.";
-            return false;
+
+            message = "Loan request canceled safely.";
+            return true;
         }
     }
 }

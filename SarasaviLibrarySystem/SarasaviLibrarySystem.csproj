@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <PackageReference Include="MySql.Data" Version="26.7.0" />
   </ItemGroup>
 
 </Project>
