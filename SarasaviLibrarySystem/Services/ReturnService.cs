@@ -11,26 +11,28 @@ namespace SarasaviLibrarySystem.Services
             reservationUserNumber = string.Empty;
 
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
-
-            cmd.CommandText = @"SELECT LoanId, UserNumber, IssueDate, DueDate, Status 
-                               FROM LoanRecords 
-                               WHERE CopyAccessionNumber = @acc AND Status = 'Active';";
-            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
-
             long loanId = -1;
             string borrowerUserNumber = "";
-            using (var reader = cmd.ExecuteReader())
+
+            using (var cmd = conn.CreateCommand())
             {
-                if (reader.Read())
+                cmd.CommandText = @"SELECT LoanId, UserNumber, IssueDate, DueDate, Status 
+                                   FROM LoanRecords 
+                                   WHERE CopyAccessionNumber = @acc AND Status = 'Active';";
+                LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    loanId = Convert.ToInt64(reader.GetValue(0));
-                    borrowerUserNumber = reader.GetValue(1)?.ToString() ?? "";
-                }
-                else
-                {
-                    resultMessage = $"No active loan record found for accession code '{copyAccessionNumber}'.";
-                    return false;
+                    if (reader.Read())
+                    {
+                        loanId = Convert.ToInt64(reader.GetValue(0));
+                        borrowerUserNumber = reader.GetValue(1)?.ToString() ?? "";
+                    }
+                    else
+                    {
+                        resultMessage = $"No active loan record found for accession code '{copyAccessionNumber}'.";
+                        return false;
+                    }
                 }
             }
 
