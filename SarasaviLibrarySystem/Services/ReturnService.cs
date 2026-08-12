@@ -62,19 +62,23 @@ namespace SarasaviLibrarySystem.Services
                 string pendingUserNum = "";
                 if (titleId > 0)
                 {
-                    using var resCmd = conn.CreateCommand();
-                    resCmd.Transaction = tx;
-                    resCmd.CommandText = @"SELECT ReservationId, UserNumber 
-                                           FROM ReservationRecords 
-                                           WHERE TitleId = @tid AND Status = 'Pending' 
-                                           ORDER BY RequestDate ASC;";
-                    LibraryDbContext.AddParam(resCmd, "@tid", titleId);
-
-                    using var resReader = resCmd.ExecuteReader();
-                    if (resReader.Read())
+                    using (var resCmd = conn.CreateCommand())
                     {
-                        pendingResId = Convert.ToInt64(resReader.GetValue(0));
-                        pendingUserNum = resReader.GetValue(1)?.ToString() ?? "";
+                        resCmd.Transaction = tx;
+                        resCmd.CommandText = @"SELECT ReservationId, UserNumber 
+                                               FROM ReservationRecords 
+                                               WHERE TitleId = @tid AND Status = 'Pending' 
+                                               ORDER BY RequestDate ASC;";
+                        LibraryDbContext.AddParam(resCmd, "@tid", titleId);
+
+                        using (var resReader = resCmd.ExecuteReader())
+                        {
+                            if (resReader.Read())
+                            {
+                                pendingResId = Convert.ToInt64(resReader.GetValue(0));
+                                pendingUserNum = resReader.GetValue(1)?.ToString() ?? "";
+                            }
+                        }
                     }
                 }
 
