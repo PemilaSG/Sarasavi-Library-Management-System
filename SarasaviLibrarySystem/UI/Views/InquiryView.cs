@@ -17,6 +17,8 @@ namespace SarasaviLibrarySystem.UI.Views
         {
             InitializeComponent();
             LoadCatalog("");
+            this.Resize += (s, e) => LayoutInquiry();
+            LayoutInquiry();
         }
 
         private void InitializeComponent()
@@ -151,6 +153,39 @@ namespace SarasaviLibrarySystem.UI.Views
 
             gridCatalog.CellPainting += GridCatalog_CellPainting;
             this.Controls.Add(gridCatalog);
+        }
+
+        private void LayoutInquiry()
+        {
+            int margin = 25;
+            int topRowY = 69;
+            int gridTop = 120;
+
+            if (txtSearch != null)
+            {
+                int searchWidth = Math.Min(500, Math.Max(320, this.ClientSize.Width - 725));
+                txtSearch.Location = new Point(margin, 70);
+                txtSearch.Size = new Size(searchWidth, 34);
+            }
+
+            if (btnSearch != null)
+            {
+                btnSearch.Location = new Point((txtSearch?.Right ?? (margin + 500)) + 10, topRowY - 1);
+            }
+
+            if (btnReserve != null)
+            {
+                btnReserve.Location = new Point((btnSearch?.Right ?? (margin + 650)) + 15, topRowY - 1);
+                btnReserve.Size = new Size(Math.Max(220, this.ClientSize.Width - btnReserve.Left - margin), 36);
+            }
+
+            if (gridCatalog != null)
+            {
+                int gridWidth = Math.Max(300, this.ClientSize.Width - (margin * 2));
+                int gridHeight = Math.Max(200, this.ClientSize.Height - gridTop - 25);
+                gridCatalog.Location = new Point(margin, gridTop);
+                gridCatalog.Size = new Size(gridWidth, gridHeight);
+            }
         }
 
         private void LoadCatalog(string query)

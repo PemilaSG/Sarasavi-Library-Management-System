@@ -11,26 +11,28 @@ namespace SarasaviLibrarySystem.Services
             reservationUserNumber = string.Empty;
 
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
-
-            cmd.CommandText = @"SELECT LoanId, UserNumber, IssueDate, DueDate, Status 
-                               FROM LoanRecords 
-                               WHERE CopyAccessionNumber = @acc AND Status = 'Active';";
-            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
-
             long loanId = -1;
             string borrowerUserNumber = "";
-            using (var reader = cmd.ExecuteReader())
+
+            using (var cmd = conn.CreateCommand())
             {
-                if (reader.Read())
+                cmd.CommandText = @"SELECT LoanId, UserNumber, IssueDate, DueDate, Status 
+                                   FROM LoanRecords 
+                                   WHERE CopyAccessionNumber = @acc AND Status = 'Active';";
+                LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    loanId = Convert.ToInt64(reader.GetValue(0));
-                    borrowerUserNumber = reader.GetValue(1)?.ToString() ?? "";
-                }
-                else
-                {
-                    resultMessage = $"No active loan record found for accession code '{copyAccessionNumber}'.";
-                    return false;
+                    if (reader.Read())
+                    {
+                        loanId = Convert.ToInt64(reader.GetValue(0));
+                        borrowerUserNumber = reader.GetValue(1)?.ToString() ?? "";
+                    }
+                    else
+                    {
+                        resultMessage = $"No active loan record found for accession code '{copyAccessionNumber}'.";
+                        return false;
+                    }
                 }
             }
 
@@ -62,19 +64,23 @@ namespace SarasaviLibrarySystem.Services
                 string pendingUserNum = "";
                 if (titleId > 0)
                 {
-                    using var resCmd = conn.CreateCommand();
-                    resCmd.Transaction = tx;
-                    resCmd.CommandText = @"SELECT ReservationId, UserNumber 
-                                           FROM ReservationRecords 
-                                           WHERE TitleId = @tid AND Status = 'Pending' 
-                                           ORDER BY RequestDate ASC;";
-                    LibraryDbContext.AddParam(resCmd, "@tid", titleId);
-
-                    using var resReader = resCmd.ExecuteReader();
-                    if (resReader.Read())
+                    using (var resCmd = conn.CreateCommand())
                     {
-                        pendingResId = Convert.ToInt64(resReader.GetValue(0));
-                        pendingUserNum = resReader.GetValue(1)?.ToString() ?? "";
+                        resCmd.Transaction = tx;
+                        resCmd.CommandText = @"SELECT ReservationId, UserNumber 
+                                               FROM ReservationRecords 
+                                               WHERE TitleId = @tid AND Status = 'Pending' 
+                                               ORDER BY RequestDate ASC;";
+                        LibraryDbContext.AddParam(resCmd, "@tid", titleId);
+
+                        using (var resReader = resCmd.ExecuteReader())
+                        {
+                            if (resReader.Read())
+                            {
+                                pendingResId = Convert.ToInt64(resReader.GetValue(0));
+                                pendingUserNum = resReader.GetValue(1)?.ToString() ?? "";
+                            }
+                        }
                     }
                 }
 

@@ -69,30 +69,37 @@ namespace SarasaviLibrarySystem.Services
         public Borrower? GetBorrowerDetails(string userNumber)
         {
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
-
-            cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers WHERE UserNumber = @unum OR NIC = @unum;";
-            LibraryDbContext.AddParam(cmd, "@unum", userNumber);
-
-            using var reader = cmd.ExecuteReader();
-            if (reader.Read())
+            
+            Borrower? b = null;
+            using (var cmd = conn.CreateCommand())
             {
-                object rawDate = reader.GetValue(5);
-                DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
+                cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers WHERE UserNumber = @unum OR NIC = @unum;";
+                LibraryDbContext.AddParam(cmd, "@unum", userNumber);
 
-                var b = new Borrower
+                using (var reader = cmd.ExecuteReader())
                 {
-                    UserNumber = reader.GetValue(0)?.ToString() ?? "",
-                    Name = reader.GetValue(1)?.ToString() ?? "",
-                    Sex = reader.GetValue(2)?.ToString() ?? "",
-                    NIC = reader.GetValue(3)?.ToString() ?? "",
-                    Address = reader.GetValue(4)?.ToString() ?? "",
-                    RegistrationDate = regDate
-                };
-                reader.Close();
+                    if (reader.Read())
+                    {
+                        object rawDate = reader.GetValue(5);
+                        DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
 
-                b.ActiveLoansCount = GetActiveLoansCount(b.UserNumber, conn);
-                b.HasOverdueLoans = CheckHasOverdueLoans(b.UserNumber, conn);
+                        b = new Borrower
+                        {
+                            UserNumber = reader.GetValue(0)?.ToString() ?? "",
+                            Name = reader.GetValue(1)?.ToString() ?? "",
+                            Sex = reader.GetValue(2)?.ToString() ?? "",
+                            NIC = reader.GetValue(3)?.ToString() ?? "",
+                            Address = reader.GetValue(4)?.ToString() ?? "",
+                            RegistrationDate = regDate
+                        };
+                    }
+                }
+            }
+
+            if (b != null)
+            {
+                b.ActiveLoansCount = GetActiveLoansCount(b.UserNumber);
+                b.HasOverdueLoans = CheckHasOverdueLoans(b.UserNumber);
                 return b;
             }
 
@@ -103,46 +110,52 @@ namespace SarasaviLibrarySystem.Services
         {
             var list = new List<Borrower>();
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers ORDER BY UserNumber ASC;";
-
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
+            using (var cmd = conn.CreateCommand())
             {
-                object rawDate = reader.GetValue(5);
-                DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
+                cmd.CommandText = "SELECT UserNumber, Name, Sex, NIC, Address, RegistrationDate FROM Borrowers ORDER BY UserNumber ASC;";
 
-                var b = new Borrower
+                using (var reader = cmd.ExecuteReader())
                 {
-                    UserNumber = reader.GetValue(0)?.ToString() ?? "",
-                    Name = reader.GetValue(1)?.ToString() ?? "",
-                    Sex = reader.GetValue(2)?.ToString() ?? "",
-                    NIC = reader.GetValue(3)?.ToString() ?? "",
-                    Address = reader.GetValue(4)?.ToString() ?? "",
-                    RegistrationDate = regDate
-                };
-                list.Add(b);
+                    while (reader.Read())
+                    {
+                        object rawDate = reader.GetValue(5);
+                        DateTime regDate = rawDate is DateTime dt ? dt : (DateTime.TryParse(rawDate?.ToString(), out var d) ? d : DateTime.Now);
+
+                        var b = new Borrower
+                        {
+                            UserNumber = reader.GetValue(0)?.ToString() ?? "",
+                            Name = reader.GetValue(1)?.ToString() ?? "",
+                            Sex = reader.GetValue(2)?.ToString() ?? "",
+                            NIC = reader.GetValue(3)?.ToString() ?? "",
+                            Address = reader.GetValue(4)?.ToString() ?? "",
+                            RegistrationDate = regDate
+                        };
+                        list.Add(b);
+                    }
+                }
             }
 
             foreach (var item in list)
             {
-                item.ActiveLoansCount = GetActiveLoansCount(item.UserNumber, conn);
-                item.HasOverdueLoans = CheckHasOverdueLoans(item.UserNumber, conn);
+                item.ActiveLoansCount = GetActiveLoansCount(item.UserNumber);
+                item.HasOverdueLoans = CheckHasOverdueLoans(item.UserNumber);
             }
 
             return list;
         }
 
-        private int GetActiveLoansCount(string userNumber, System.Data.Common.DbConnection conn)
+        private int GetActiveLoansCount(string userNumber)
         {
+            using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE UserNumber = @unum AND Status = 'Active';";
             LibraryDbContext.AddParam(cmd, "@unum", userNumber);
             return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
         }
 
-        private bool CheckHasOverdueLoans(string userNumber, System.Data.Common.DbConnection conn)
+        private bool CheckHasOverdueLoans(string userNumber)
         {
+            using var conn = LibraryDbContext.GetConnection();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM LoanRecords WHERE UserNumber = @unum AND Status = 'Active' AND DueDate < @now;";
             LibraryDbContext.AddParam(cmd, "@unum", userNumber);

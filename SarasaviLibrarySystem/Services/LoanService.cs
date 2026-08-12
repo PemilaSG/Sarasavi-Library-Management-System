@@ -24,24 +24,26 @@ namespace SarasaviLibrarySystem.Services
             }
 
             using var conn = LibraryDbContext.GetConnection();
-            using var cmd = conn.CreateCommand();
-
-            cmd.CommandText = "SELECT Status, CopyType FROM BookCopies WHERE AccessionNumber = @acc;";
-            LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
-
             string copyStatus = "";
             string copyType = "";
-            using (var reader = cmd.ExecuteReader())
+
+            using (var cmd = conn.CreateCommand())
             {
-                if (reader.Read())
+                cmd.CommandText = "SELECT Status, CopyType FROM BookCopies WHERE AccessionNumber = @acc;";
+                LibraryDbContext.AddParam(cmd, "@acc", copyAccessionNumber);
+
+                using (var reader = cmd.ExecuteReader())
                 {
-                    copyStatus = reader.GetValue(0)?.ToString() ?? "";
-                    copyType = reader.GetValue(1)?.ToString() ?? "";
-                }
-                else
-                {
-                    message = $"Book Copy with accession number '{copyAccessionNumber}' does not exist.";
-                    return false;
+                    if (reader.Read())
+                    {
+                        copyStatus = reader.GetValue(0)?.ToString() ?? "";
+                        copyType = reader.GetValue(1)?.ToString() ?? "";
+                    }
+                    else
+                    {
+                        message = $"Book Copy with accession number '{copyAccessionNumber}' does not exist.";
+                        return false;
+                    }
                 }
             }
 
