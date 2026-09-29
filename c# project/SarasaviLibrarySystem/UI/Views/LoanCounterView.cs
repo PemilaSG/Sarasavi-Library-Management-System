@@ -271,10 +271,10 @@ namespace SarasaviLibrarySystem.UI.Views
 
             lblDueDate = new Label
             {
-                Text = $"Calculated Return Due Date: {DateTime.Now.AddDays(14):yyyy-MM-dd} (14 Days Loan Period)",
-                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+                Text = $"Return Due Date: {DateTime.Now.AddDays(14):yyyy-MM-dd}\n(14 Days Loan Period)",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(230, 126, 34),
-                Location = new Point(20, 325),
+                Location = new Point(20, 320),
                 AutoSize = true
             };
             pnlIssue.Controls.Add(lblDueDate);
@@ -297,7 +297,7 @@ namespace SarasaviLibrarySystem.UI.Views
             // Current Issue List Table
             pnlIssue.Controls.Add(new Label
             {
-                Text = "Current Checkout Issue List",
+                Text = "Current Active Loans for Borrower",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = Color.Gainsboro,
                 Location = new Point(20, 375),
@@ -335,10 +335,10 @@ namespace SarasaviLibrarySystem.UI.Views
             gridIssueQueue.Columns.Add("Author", "Author");
             gridIssueQueue.Columns.Add("DueDate", "Due Date");
 
-            gridIssueQueue.Columns["AccessionCode"].Width = 160;
-            gridIssueQueue.Columns["Title"].Width = 245;
-            gridIssueQueue.Columns["Author"].Width = 160;
-            gridIssueQueue.Columns["DueDate"].Width = 120;
+            gridIssueQueue.Columns["AccessionCode"]!.Width = 160;
+            gridIssueQueue.Columns["Title"]!.Width = 245;
+            gridIssueQueue.Columns["Author"]!.Width = 160;
+            gridIssueQueue.Columns["DueDate"]!.Width = 120;
 
             pnlIssue.Controls.Add(gridIssueQueue);
             this.Controls.Add(pnlIssue);
@@ -356,6 +356,25 @@ namespace SarasaviLibrarySystem.UI.Views
             };
         }
 
+        private void LoadActiveLoansGrid(string? userNum)
+        {
+            gridIssueQueue.Rows.Clear();
+            if (string.IsNullOrWhiteSpace(userNum)) return;
+
+            var loanService = new LoanService();
+            var activeLoans = loanService.GetActiveLoansForBorrower(userNum);
+
+            foreach (var loan in activeLoans)
+            {
+                gridIssueQueue.Rows.Add(
+                    loan.CopyAccessionNumber,
+                    loan.BookTitle,
+                    loan.BorrowerName,
+                    loan.DueDate.ToString("yyyy-MM-dd")
+                );
+            }
+        }
+
         private void VerifyMember(string userNum)
         {
             var service = new BorrowerService();
@@ -371,6 +390,7 @@ namespace SarasaviLibrarySystem.UI.Views
                 lblLoansText.ForeColor = Color.FromArgb(192, 57, 43);
                 lblCheckLimit.Text = "❌ Within 5 book limit (Borrower Not Found)";
                 lblCheckLimit.ForeColor = Color.FromArgb(192, 57, 43);
+                LoadActiveLoansGrid(null);
                 return;
             }
 
@@ -404,6 +424,8 @@ namespace SarasaviLibrarySystem.UI.Views
                 lblCheckOverdue.Text = "✔ No overdue loans on borrower account";
                 lblCheckOverdue.ForeColor = Color.FromArgb(46, 204, 113);
             }
+
+            LoadActiveLoansGrid(b.UserNumber);
         }
 
         private void BtnScan_Click(object? sender, EventArgs e)
@@ -450,13 +472,6 @@ namespace SarasaviLibrarySystem.UI.Views
             if (service.IssueLoan(userNum, copyCode, out string msg))
             {
                 MessageBox.Show(msg, "Loan Issued", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                var catalogService = new CatalogService();
-                var items = catalogService.GetInventoryItems(copyCode);
-                string title = items.Count > 0 ? items[0].Title : "Book";
-                string author = items.Count > 0 ? items[0].Author : "Author";
-
-                gridIssueQueue.Rows.Add(copyCode, title, author, DateTime.Now.AddDays(14).ToString("yyyy-MM-dd"));
                 VerifyMember(userNum);
             }
             else

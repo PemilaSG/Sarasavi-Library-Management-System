@@ -53,7 +53,7 @@ namespace SarasaviLibrarySystem.Services
                 return false;
             }
 
-            if (!copyStatus.Equals("Available", StringComparison.OrdinalIgnoreCase))
+            if (!copyStatus.Equals("Available", StringComparison.OrdinalIgnoreCase) && !copyStatus.Equals("Reserved", StringComparison.OrdinalIgnoreCase))
             {
                 message = $"Copy '{copyAccessionNumber}' is currently unavailable (Status: {copyStatus}).";
                 return false;
@@ -95,6 +95,45 @@ namespace SarasaviLibrarySystem.Services
                 message = $"Loan processing failed due to database error: {ex.Message}";
                 return false;
             }
+        }
+
+        public System.Collections.Generic.List<LoanRecord> GetActiveLoansForBorrower(string userNumber)
+        {
+            var list = new System.Collections.Generic.List<LoanRecord>();
+            using var conn = LibraryDbContext.GetConnection();
+            using var cmd = conn.CreateCommand();
+
+            cmd.CommandText = @"
+                SELECT l.LoanId, l.CopyAccessionNumber, l.UserNumber, t.Title, t.Author, l.IssueDate, l.DueDate, l.Status
+                FROM LoanRecords l
+                JOIN BookCopies c ON l.CopyAccessionNumber = c.AccessionNumber
+                JOIN BookTitles t ON c.TitleId = t.TitleId
+                WHERE l.UserNumber = @unum AND l.Status = 'Active'
+                ORDER BY l.IssueDate DESC;";
+            LibraryDbContext.AddParam(cmd, "@unum", userNumber);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                object rawIssue = reader.GetValue(5);
+                object rawDue = reader.GetValue(6);
+                DateTime issueDt = rawIssue is DateTime idt ? idt : (DateTime.TryParse(rawIssue?.ToString(), out var d1) ? d1 : DateTime.Now);
+                DateTime dueDt = rawDue is DateTime ddt ? ddt : (DateTime.TryParse(rawDue?.ToString(), out var d2) ? d2 : DateTime.Now.AddDays(14));
+
+                list.Add(new LoanRecord
+                {
+                    LoanId = Convert.ToInt32(reader.GetValue(0)),
+                    CopyAccessionNumber = reader.GetValue(1)?.ToString() ?? "",
+                    UserNumber = reader.GetValue(2)?.ToString() ?? "",
+                    BookTitle = reader.GetValue(3)?.ToString() ?? "",
+                    BorrowerName = reader.GetValue(4)?.ToString() ?? "",
+                    IssueDate = issueDt,
+                    DueDate = dueDt,
+                    Status = reader.GetValue(7)?.ToString() ?? "Active"
+                });
+            }
+
+            return list;
         }
 
         public bool CancelLoanRequest(string copyAccessionNumber, out string message)

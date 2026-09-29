@@ -230,12 +230,14 @@ namespace SarasaviLibrarySystem.UI.Views
                     e.CellBounds.Height - (padY * 2)
                 );
 
-                using (var path = GetRoundedPath(badgeRect, 12))
-                using (var brush = new SolidBrush(bg))
-                using (var font = new Font("Segoe UI", 9F, FontStyle.Bold))
-                using (var textBrush = new SolidBrush(text))
-                using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                if (e.Graphics != null)
                 {
+                    using var path = GetRoundedPath(badgeRect, 12);
+                    using var brush = new SolidBrush(bg);
+                    using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
+                    using var textBrush = new SolidBrush(text);
+                    using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    
                     e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                     e.Graphics.FillPath(brush, path);
                     e.Graphics.DrawString(status, font, textBrush, badgeRect, sf);
@@ -324,10 +326,12 @@ namespace SarasaviLibrarySystem.UI.Views
             btnSubmit.Click += (s, ev) => {
                 string uNum = txtUserNum.Text.Trim();
                 var resService = new ReservationService();
-                if (resService.ReserveTitle(1, uNum, out string msg))
+                if (resService.ReserveCopy(code, uNum, out string msg))
                 {
                     MessageBox.Show(msg, "Reservation Placed", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     dlg.Close();
+                    string q = txtSearch.Text.StartsWith("Search by") ? "" : txtSearch.Text;
+                    LoadCatalog(q);
                 }
                 else
                 {

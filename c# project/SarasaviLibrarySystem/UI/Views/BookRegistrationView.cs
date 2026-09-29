@@ -114,14 +114,16 @@ namespace SarasaviLibrarySystem.UI.Views
             rdoReferenceOnly = new RadioButton
             {
                 Text = "Reference Only (Copy 01 marked Reference)",
-                Location = new Point(270, top + 25),
+                Location = new Point(25, top + 55),
                 AutoSize = true,
                 ForeColor = Color.Gainsboro,
                 Font = new Font("Segoe UI", 10F)
             };
+            rdoBorrowable.CheckedChanged += (s, e) => UpdateCodePreview();
+            rdoReferenceOnly.CheckedChanged += (s, e) => UpdateCodePreview();
             pnlForm.Controls.Add(rdoBorrowable);
             pnlForm.Controls.Add(rdoReferenceOnly);
-            top += 75;
+            top += 95;
 
             btnRegister = new Button
             {

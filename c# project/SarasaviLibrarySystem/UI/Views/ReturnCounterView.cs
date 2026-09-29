@@ -9,7 +9,6 @@ namespace SarasaviLibrarySystem.UI.Views
     {
         private TextBox txtCopyCode = null!;
         private Button btnProcessReturn = null!;
-        private Button btnTestAlert = null!;
         private Label lblStatusMsg = null!;
 
         public ReturnCounterView()
@@ -64,7 +63,7 @@ namespace SarasaviLibrarySystem.UI.Views
             {
                 Text = "Process Return",
                 Location = new Point(20, 110),
-                Size = new Size(270, 45),
+                Size = new Size(560, 45),
                 BackColor = Color.FromArgb(39, 174, 96),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
@@ -74,21 +73,6 @@ namespace SarasaviLibrarySystem.UI.Views
             btnProcessReturn.FlatAppearance.BorderSize = 0;
             btnProcessReturn.Click += BtnProcessReturn_Click;
             pnlReturnCard.Controls.Add(btnProcessReturn);
-
-            btnTestAlert = new Button
-            {
-                Text = "Test Reservation Alert Modal Popup",
-                Location = new Point(310, 110),
-                Size = new Size(270, 45),
-                BackColor = Color.FromArgb(230, 126, 34),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
-            };
-            btnTestAlert.FlatAppearance.BorderSize = 0;
-            btnTestAlert.Click += (s, e) => ShowReservationAlertModal("C0002-01", "C# 10 and .NET 6 Modern Cross-Platform Development", "M-1002 (Nimali Fernando)");
-            pnlReturnCard.Controls.Add(btnTestAlert);
 
             lblStatusMsg = new Label
             {

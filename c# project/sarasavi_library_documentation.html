@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarasavi Library Management System - Full Documentation</title>
+    <style>
+        :root {
+            --bg-dark: #121621;
+            --card-bg: #1a202e;
+            --card-inner: #242c3e;
+            --accent-blue: #2980b9;
+            --accent-green: #27ae60;
+            --accent-orange: #e67e22;
+            --accent-purple: #8e44ad;
+            --accent-red: #e74c3c;
+            --text-main: #ffffff;
+            --text-muted: #a0aec0;
+            --border-color: #2d3748;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1a202e 0%, #0f141d 100%);
+            border-bottom: 2px solid var(--accent-blue);
+            padding: 40px 60px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            color: #ffffff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 40px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            background: rgba(18, 22, 33, 0.95);
+            padding: 12px;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+        }
+
+        .nav-tabs a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .nav-tabs a:hover {
+            color: #ffffff;
+            background: var(--card-inner);
+            border-color: var(--accent-blue);
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            margin: 40px 0 20px 0;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 14px;
+            padding: 28px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: #4a5568;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .card-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-blue { background: rgba(41, 128, 185, 0.2); color: #3498db; border: 1px solid #2980b9; }
+        .badge-green { background: rgba(39, 174, 96, 0.2); color: #2ecc71; border: 1px solid #27ae60; }
+        .badge-orange { background: rgba(230, 126, 34, 0.2); color: #e67e22; border: 1px solid #d35400; }
+        .badge-purple { background: rgba(142, 68, 173, 0.2); color: #9b59b6; border: 1px solid #8e44ad; }
+
+        .sub-heading {
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin: 14px 0 6px 0;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        ul li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        ul li::before {
+            content: "•";
+            color: var(--accent-blue);
+            font-weight: bold;
+            font-size: 1.2rem;
+            position: absolute;
+            left: 0;
+            top: -2px;
+        }
+
+        .behind-scenes {
+            background-color: var(--card-inner);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 16px;
+            border-left: 4px solid var(--accent-green);
+        }
+
+        .behind-scenes p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: #171c28;
+            color: #61afef;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.88rem;
+        }
+
+        .code-block {
+            background: #171c28;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.88rem;
+            color: #abb2bf;
+            overflow-x: auto;
+            margin: 10px 0;
+            border: 1px solid #282c34;
+        }
+
+        .code-keyword { color: #c678dd; font-weight: bold; }
+        .code-class { color: #e5c07b; }
+        .code-method { color: #61afef; }
+        .code-string { color: #98c379; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        th, td {
+            padding: 14px 18px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--card-inner);
+            color: #ffffff;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            border-bottom: 1px solid var(--border-color);
+            color: #e2e8f0;
+            font-size: 0.92rem;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-color);
+            margin-top: 60px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>📚 Sarasavi Library Management System</h1>
+        <p>Comprehensive System Architecture, Object-Oriented Programming (OOP) Mapping & Page-by-Page Technical Documentation</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Navigation Bar -->
+        <div class="nav-tabs">
+            <a href="#oop-section">🧩 OOP Principles</a>
+            <a href="#page-section">📖 Page-by-Page Guide</a>
+            <a href="#architecture-section">🏗️ Architecture & Data</a>
+        </div>
+
+        <!-- SECTION 1: OOP IMPLEMENTATION -->
+        <h2 id="oop-section" class="section-title">🧩 Object-Oriented Programming (OOP) Implementation</h2>
+        
+        <p style="color: var(--text-muted); margin-bottom: 24px;">
+            The system is built using modern C# .NET multi-tiered OOP principles, separating domain models, business logic controllers, data access contexts, and UI views.
+        </p>
+
+        <div class="grid">
+            <!-- Encapsulation -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔒 1. Encapsulation</div>
+                    <span class="badge badge-blue">Data Protection</span>
+                </div>
+                <p>Bundling state variables and functions into classes, keeping data private/protected and providing controlled property getters/setters and business methods.</p>
+                
+                <div class="sub-heading">📁 File Implementations:</div>
+                <ul>
+                    <li><code>Models/Borrower.cs</code>: Encapsulates borrower state (<code>UserNumber</code>, <code>Name</code>, <code>NIC</code>, <code>ActiveLoansCount</code>, <code>HasOverdueLoans</code>). Exposes the business method <code>CanBorrow(out string reason)</code> to enforce 5-book limits and overdue blocks inside the class.</li>
+                    <li><code>Models/LoanRecord.cs</code>: Encapsulates loan data and exposes a computed getter property <code>IsOverdue</code> (<code>public bool IsOverdue => Status == "Active" && DateTime.Now > DueDate;</code>).</li>
+                    <li><code>Models/BookTitle.cs</code> & <code>Models/BookCopy.cs</code>: Encapsulates book catalog properties cleanly.</li>
+                </ul>
+            </div>
+
+            <!-- Abstraction -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🛡️ 2. Abstraction</div>
+                    <span class="badge badge-green">Logic Hiding</span>
+                </div>
+                <p>Exposing simple high-level service interfaces to the UI while hiding complex SQL transactions, DataReader lifecycles, and validation algorithms behind the scenes.</p>
+                
+                <div class="sub-heading">📁 File Implementations:</div>
+                <ul>
+                    <li><code>Services/BorrowerService.cs</code>: Hides raw database queries behind clean methods like <code>GetBorrowerDetails(userNumber)</code> and <code>RegisterBorrower()</code>.</li>
+                    <li><code>Services/LoanService.cs</code>: Exposes <code>IssueLoan()</code>, hiding multi-step checks (copy status, overdue status, active limit, database transactions).</li>
+                    <li><code>Services/ReturnService.cs</code>: Exposes <code>ProcessReturn()</code>, hiding automated FIFO reservation checking and set-aside notifications.</li>
+                    <li><code>Data/LibraryDbContext.cs</code>: Hides DB connection creation and automatic SQLite fallback behind <code>GetConnection()</code>.</li>
+                </ul>
+            </div>
+
+            <!-- Inheritance -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🧬 3. Inheritance</div>
+                    <span class="badge badge-purple">Base Classes</span>
+                </div>
+                <p>Extending framework base classes to inherit fields, layout properties, and event handlers for reusable GUI development.</p>
+                
+                <div class="sub-heading">📁 File Implementations:</div>
+                <ul>
+                    <li><code>UI/MainForm.cs</code>: Inherits from <code>System.Windows.Forms.Form</code> (<code>public class MainForm : Form</code>).</li>
+                    <li>All View components inherit from <code>System.Windows.Forms.UserControl</code>:
+                        <ul>
+                            <li><code>UI/Views/DashboardView.cs</code></li>
+                            <li><code>UI/Views/BookRegistrationView.cs</code></li>
+                            <li><code>UI/Views/BorrowerRegistrationView.cs</code></li>
+                            <li><code>UI/Views/LoanCounterView.cs</code></li>
+                            <li><code>UI/Views/ReturnCounterView.cs</code></li>
+                            <li><code>UI/Views/InquiryView.cs</code></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Polymorphism -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔄 4. Polymorphism</div>
+                    <span class="badge badge-orange">Dynamic Types</span>
+                </div>
+                <p>Handling derived classes through unified abstract interfaces for maximum flexibility.</p>
+                
+                <div class="sub-heading">📁 File Implementations:</div>
+                <ul>
+                    <li><code>Data/LibraryDbContext.cs</code>: <code>GetConnection()</code> returns the abstract <code>DbConnection</code> type, which polymorphically instantiates either <code>MySqlConnection</code> or <code>SqliteConnection</code> depending on database availability.</li>
+                    <li><code>LibraryDbContext.AddParam()</code> accepts abstract <code>DbCommand</code> and handles parameter binding for both MySQL and SQLite commands.</li>
+                    <li><code>UI/MainForm.cs</code>: Swaps different derived <code>UserControl</code> views dynamically into the main interface panel.</li>
+                </ul>
+            </div>
+        </div>
+
+
+        <!-- SECTION 2: PAGE BY PAGE DOCUMENTATION -->
+        <h2 id="page-section" class="section-title">📖 Comprehensive Page-by-Page Technical Guide</h2>
+
+        <!-- Page 1: Dashboard -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">📊 1. Dashboard Page (<code>DashboardView.cs</code>)</div>
+                <span class="badge badge-blue">Analytics & Overview</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Provides real-time library operational analytics and quick navigation shortcuts for librarians.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li>Displays **Total Book Titles** registered in the library.</li>
+                <li>Displays **Available Physical Copies** ready on shelves.</li>
+                <li>Displays **Active Loans** currently checked out by members.</li>
+                <li>Displays **Overdue Loans Count** (books past their 14-day return due date).</li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Queries <code>BookTitles</code>, <code>BookCopies</code>, and <code>LoanRecords</code> tables via <code>CatalogService.GetDashboardStats()</code>.</p>
+                <div class="code-block">
+<span class="code-keyword">var</span> (totalTitles, availableCopies, activeLoans, overdueCount) = <span class="code-keyword">new</span> <span class="code-class">CatalogService</span>().<span class="code-method">GetDashboardStats</span>();
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 2: Book Registration -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">📚 2. Book Registration Page (<code>BookRegistrationView.cs</code>)</div>
+                <span class="badge badge-green">Cataloging & Inventory</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Cataloging new book titles and generating physical copy inventory in the library database.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li>Librarian selects a **Category Code** (<code>C</code> = Computing, <code>F</code> = Fiction, <code>S</code> = Science, <code>M</code> = Management).</li>
+                <li>System auto-generates the **Next Accession Base Code** (e.g. <code>C0001</code>, <code>F0001</code>).</li>
+                <li>Librarian enters **Title**, **Author**, **Publisher**, and specifies **Number of Copies** (between 1 and 10).</li>
+                <li>Optionally checks **"1st Copy Reference Only"** (marking copy <code>-01</code> as non-borrowable).</li>
+                <li>Clicking **"Register Book & Copies"** creates the title and physical accession copies (e.g. <code>C0001-01</code>, <code>C0001-02</code>).</li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Calls <code>CatalogService.AddBookTitleWithCopies()</code> using database transactions to insert into <code>BookTitles</code> and <code>BookCopies</code> tables.</p>
+                <div class="code-block">
+<span class="code-keyword">bool</span> success = <span class="code-keyword">new</span> <span class="code-class">CatalogService</span>().<span class="code-method">AddBookTitleWithCopies</span>(title, author, publisher, classCode, copyCount, refOnly, <span class="code-keyword">out</span> msg);
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 3: Borrower Entry -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">👤 3. Borrower Entry Page (<code>BorrowerRegistrationView.cs</code>)</div>
+                <span class="badge badge-purple">Member Registration</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Registering new library members and displaying active borrower accounts.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li>Librarian inputs **Name**, **Sex** (Male/Female), **NIC Number**, and **Address**.</li>
+                <li>System verifies NIC uniqueness and auto-assigns a sequential **User Number** starting at <code>M-1001</code> (e.g. <code>M-1001</code>, <code>M-1002</code>).</li>
+                <li>Displays a DataGridView table of all registered borrowers with registration dates, active loan counts, and overdue status badges.</li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Executes <code>BorrowerService.RegisterBorrower()</code> and <code>BorrowerService.GetAllBorrowers()</code> to bind data.</p>
+                <div class="code-block">
+<span class="code-keyword">bool</span> ok = <span class="code-keyword">new</span> <span class="code-class">BorrowerService</span>().<span class="code-method">RegisterBorrower</span>(name, sex, nic, address, <span class="code-keyword">out</span> userNum, <span class="code-keyword">out</span> msg);
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 4: Issue Loan Counter -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">🔄 4. Issue Loan Counter Page (<code>LoanCounterView.cs</code>)</div>
+                <span class="badge badge-orange">Checkout & Rule Enforcement</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Checking out books to members while enforcing all automated library borrowing rules.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li><strong>Step 1: Member Verification:</strong> Enter/Scan User Number (e.g. <code>M-1001</code>). Automated checks run:
+                    <ul>
+                        <li>✔ **Max 5 Books Limit:** Progress bar shows current active loan count vs 5-book limit.</li>
+                        <li>✔ **Overdue Check:** If member has unreturned overdue books, borrowing is **BLOCKED**.</li>
+                    </ul>
+                </li>
+                <li><strong>Step 2: Copy Verification:</strong> Enter/Scan Accession Code (e.g. <code>C0002-02</code>). Verifies copy is <code>Borrowable</code> and <code>Available</code>.</li>
+                <li><strong>Step 3: Issue Loan:</strong> Calculates **14-Day Return Due Date**. Clicking **"Issue Loan"** completes checkout.</li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Executes <code>BorrowerService.GetBorrowerDetails()</code> and <code>LoanService.IssueLoan()</code> inside a database transaction.</p>
+                <div class="code-block">
+<span class="code-keyword">bool</span> issued = <span class="code-keyword">new</span> <span class="code-class">LoanService</span>().<span class="code-method">IssueLoan</span>(userNumber, accessionCode, <span class="code-keyword">out</span> message);
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 5: Return Counter -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <div class="card-title">📥 5. Return Counter Page (<code>ReturnCounterView.cs</code>)</div>
+                <span class="badge badge-blue">Return & FIFO Queue</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Processing returned books and handling automated FIFO reservation queue alerts.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li>Librarian enters returned Accession Code (e.g. <code>C0002-01</code>) and clicks **"Process Return"**.</li>
+                <li>System marks loan record as <code>Returned</code> (<code>ReturnDate = Today</code>).</li>
+                <li><strong>Automated FIFO Reservation Checking:</strong>
+                    <ul>
+                        <li>**No Reservation:** Copy status updates to <code>Available</code> (placed back on public shelf).</li>
+                        <li>**Reservation Exists:** Copy status updates to <code>Reserved</code>, reservation is marked <code>Fulfilled</code>, and a **High-Visibility Alert Modal Window** pops up:
+                            <br><em style="color: #e67e22; font-weight: bold;">🔔 RESERVED BOOK ALERT: Do not put on public shelf! Place in Reserved Set-Aside Shelf for Member M-1002.</em>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Executes <code>ReturnService.ProcessReturn()</code> to update <code>LoanRecords</code>, <code>ReservationRecords</code>, and <code>BookCopies</code> within a transaction.</p>
+                <div class="code-block">
+<span class="code-keyword">bool</span> retOk = <span class="code-keyword">new</span> <span class="code-class">ReturnService</span>().<span class="code-method">ProcessReturn</span>(copyCode, <span class="code-keyword">out</span> msg, <span class="code-keyword">out</span> isReserved, <span class="code-keyword">out</span> resUserNum);
+                </div>
+            </div>
+        </div>
+
+        <!-- Page 6: Catalog Search & Inquiry -->
+        <div class="card" style="margin-bottom: 40px;">
+            <div class="card-header">
+                <div class="card-title">🔍 6. Catalog Search & Inquiry Page (<code>InquiryView.cs</code>)</div>
+                <span class="badge badge-purple">Search & Reservations</span>
+            </div>
+            <p><strong>Main Purpose:</strong> Live inventory searching and placing reservations on unavailable books.</p>
+            
+            <div class="sub-heading">What Happens on the UI:</div>
+            <ul>
+                <li>Search by Accession Code (e.g. <code>C0001</code>), Title (e.g. <code>Clean Code</code>), or Author (e.g. <code>Robert C. Martin</code>).</li>
+                <li>Displays live status badges: <code>Available</code> [Green], <code>Borrowed</code> [Blue], <code>Reference Only</code> [Yellow], <code>Reserved</code> [Orange].</li>
+                <li>**Place Reservation:** If a book is borrowed/unavailable, librarian can select the title and click **"Place Reservation for Selected Book"** to add member to the FIFO queue.</li>
+            </ul>
+
+            <div class="behind-scenes">
+                <div class="sub-heading" style="color: var(--accent-green); margin-top:0;">⚡ Behind the Scenes (Code Methods & Logic):</div>
+                <p>Queries via <code>CatalogService.GetInventoryItems()</code> and inserts reservations via <code>ReservationService.ReserveTitle()</code>.</p>
+                <div class="code-block">
+<span class="code-keyword">bool</span> resOk = <span class="code-keyword">new</span> <span class="code-class">ReservationService</span>().<span class="code-method">ReserveTitle</span>(titleId, userNumber, <span class="code-keyword">out</span> resultMessage);
+                </div>
+            </div>
+        </div>
+
+
+        <!-- SECTION 3: ARCHITECTURE MATRIX -->
+        <h2 id="architecture-section" class="section-title">🏗️ Tiered Architecture & Database Schema Matrix</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Layer</th>
+                    <th>Components / Classes</th>
+                    <th>Primary Function</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Domain Layer</strong></td>
+                    <td><code>Borrower</code>, <code>BookTitle</code>, <code>BookCopy</code>, <code>LoanRecord</code>, <code>ReservationRecord</code></td>
+                    <td>Encapsulates core business entities, default properties, and status calculation methods.</td>
+                </tr>
+                <tr>
+                    <td><strong>Service Layer</strong></td>
+                    <td><code>BorrowerService</code>, <code>CatalogService</code>, <code>LoanService</code>, <code>ReturnService</code>, <code>ReservationService</code></td>
+                    <td>Contains all business validation algorithms, transaction workflows, and FIFO queue handlers.</td>
+                </tr>
+                <tr>
+                    <td><strong>Data Layer</strong></td>
+                    <td><code>LibraryDbContext</code></td>
+                    <td>Manages database connection lifecycle, MySQL setup, and SQLite fallback logic.</td>
+                </tr>
+                <tr>
+                    <td><strong>Presentation Layer</strong></td>
+                    <td><code>MainForm</code>, <code>DashboardView</code>, <code>BookRegistrationView</code>, <code>BorrowerRegistrationView</code>, <code>LoanCounterView</code>, <code>ReturnCounterView</code>, <code>InquiryView</code></td>
+                    <td>Renders dark-themed WinForms user interfaces and captures librarian interactions.</td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+
+    <footer>
+        <p>Sarasavi Library Management System &copy; 2026. Technical & System Architecture Documentation.</p>
+    </footer>
+
+</body>
+</html>

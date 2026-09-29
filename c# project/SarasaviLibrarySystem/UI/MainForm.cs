@@ -20,6 +20,7 @@ namespace SarasaviLibrarySystem.UI
         private Button btnNavLoanCounter = null!;
         private Button btnNavReturnCounter = null!;
         private Button btnNavInquiry = null!;
+        private Button btnNavManagement = null!;
 
         private Button currentActiveNavButton = null!;
 
@@ -119,6 +120,11 @@ namespace SarasaviLibrarySystem.UI
             btnNavInquiry = CreateNavButton("🔍  Catalog Search", top);
             btnNavInquiry.Click += (s, e) => LoadView(new InquiryView(), btnNavInquiry);
             pnlSidebar.Controls.Add(btnNavInquiry);
+            top += 55;
+
+            btnNavManagement = CreateNavButton("⚙️  Management Hub", top);
+            btnNavManagement.Click += (s, e) => LoadView(new ManagementView(), btnNavManagement);
+            pnlSidebar.Controls.Add(btnNavManagement);
 
             this.Controls.Add(pnlSidebar);
 
