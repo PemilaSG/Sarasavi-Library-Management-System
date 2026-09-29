@@ -86,9 +86,9 @@ namespace SarasaviLibrarySystem.UI.Views
 
             btnTabMembers = new Button
             {
-                Text = "👥  Member Management (View / Update / Delete)",
+                Text = "👥  Member Management",
                 Location = new Point(5, 5),
-                Size = new Size(420, 35),
+                Size = new Size(240, 35),
                 Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
@@ -99,9 +99,9 @@ namespace SarasaviLibrarySystem.UI.Views
 
             btnTabBooks = new Button
             {
-                Text = "📚  Book Management (View / Update / Delete)",
-                Location = new Point(435, 5),
-                Size = new Size(420, 35),
+                Text = "📚  Book Management",
+                Location = new Point(255, 5),
+                Size = new Size(240, 35),
                 Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
