@@ -66,6 +66,123 @@ namespace SarasaviLibrarySystem.Services
             return true;
         }
 
+        public bool UpdateBorrower(string userNumber, string name, string sex, string nic, string address, out string resultMessage)
+        {
+            if (string.IsNullOrWhiteSpace(userNumber) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(nic) || string.IsNullOrWhiteSpace(address))
+            {
+                resultMessage = "All fields (Name, NIC, Address) are required.";
+                return false;
+            }
+
+            int activeLoans = GetActiveLoansCount(userNumber);
+            if (activeLoans > 0)
+            {
+                resultMessage = $"Cannot update borrower '{userNumber}' because they currently have {activeLoans} active checked-out loan(s). All borrowed books must be returned first.";
+                return false;
+            }
+
+            using var conn = LibraryDbContext.GetConnection();
+
+            using (var checkCmd = conn.CreateCommand())
+            {
+                checkCmd.CommandText = "SELECT UserNumber FROM Borrowers WHERE NIC = @nic AND UserNumber != @unum;";
+                LibraryDbContext.AddParam(checkCmd, "@nic", nic);
+                LibraryDbContext.AddParam(checkCmd, "@unum", userNumber);
+
+                object? existing = checkCmd.ExecuteScalar();
+                if (existing != null)
+                {
+                    resultMessage = $"NIC '{nic}' is already registered to another borrower ({existing}).";
+                    return false;
+                }
+            }
+
+            using (var updateCmd = conn.CreateCommand())
+            {
+                updateCmd.CommandText = @"UPDATE Borrowers 
+                                          SET Name = @name, Sex = @sex, NIC = @nic, Address = @addr 
+                                          WHERE UserNumber = @unum;";
+                LibraryDbContext.AddParam(updateCmd, "@name", name);
+                LibraryDbContext.AddParam(updateCmd, "@sex", sex);
+                LibraryDbContext.AddParam(updateCmd, "@nic", nic);
+                LibraryDbContext.AddParam(updateCmd, "@addr", address);
+                LibraryDbContext.AddParam(updateCmd, "@unum", userNumber);
+
+                int rows = updateCmd.ExecuteNonQuery();
+                if (rows > 0)
+                {
+                    resultMessage = $"Borrower '{userNumber}' updated successfully.";
+                    return true;
+                }
+                else
+                {
+                    resultMessage = $"Borrower '{userNumber}' was not found.";
+                    return false;
+                }
+            }
+        }
+
+        public bool DeleteBorrower(string userNumber, out string resultMessage)
+        {
+            if (string.IsNullOrWhiteSpace(userNumber))
+            {
+                resultMessage = "Invalid User Number.";
+                return false;
+            }
+
+            int activeLoans = GetActiveLoansCount(userNumber);
+            if (activeLoans > 0)
+            {
+                resultMessage = $"Cannot delete borrower '{userNumber}' because they currently have {activeLoans} active checked-out loan(s). All borrowed books must be returned first.";
+                return false;
+            }
+
+            using var conn = LibraryDbContext.GetConnection();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                using (var delResCmd = conn.CreateCommand())
+                {
+                    delResCmd.Transaction = tx;
+                    delResCmd.CommandText = "DELETE FROM ReservationRecords WHERE UserNumber = @unum;";
+                    LibraryDbContext.AddParam(delResCmd, "@unum", userNumber);
+                    delResCmd.ExecuteNonQuery();
+                }
+
+                using (var delLoanCmd = conn.CreateCommand())
+                {
+                    delLoanCmd.Transaction = tx;
+                    delLoanCmd.CommandText = "DELETE FROM LoanRecords WHERE UserNumber = @unum;";
+                    LibraryDbContext.AddParam(delLoanCmd, "@unum", userNumber);
+                    delLoanCmd.ExecuteNonQuery();
+                }
+
+                using (var delCmd = conn.CreateCommand())
+                {
+                    delCmd.Transaction = tx;
+                    delCmd.CommandText = "DELETE FROM Borrowers WHERE UserNumber = @unum;";
+                    LibraryDbContext.AddParam(delCmd, "@unum", userNumber);
+                    int rows = delCmd.ExecuteNonQuery();
+                    if (rows == 0)
+                    {
+                        tx.Rollback();
+                        resultMessage = $"Borrower '{userNumber}' was not found.";
+                        return false;
+                    }
+                }
+
+                tx.Commit();
+                resultMessage = $"Borrower '{userNumber}' deleted successfully.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                tx.Rollback();
+                resultMessage = $"Error deleting borrower: {ex.Message}";
+                return false;
+            }
+        }
+
         public Borrower? GetBorrowerDetails(string userNumber)
         {
             using var conn = LibraryDbContext.GetConnection();
