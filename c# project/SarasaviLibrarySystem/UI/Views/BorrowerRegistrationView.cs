@@ -184,6 +184,10 @@ namespace SarasaviLibrarySystem.UI.Views
             var service = new BorrowerService();
             var list = service.GetAllBorrowers();
             gridMembers.DataSource = list;
+            if (gridMembers.Columns.Contains("HasOverdueLoans"))
+            {
+                gridMembers.Columns["HasOverdueLoans"]!.Visible = false;
+            }
         }
 
         private void BtnRegister_Click(object? sender, EventArgs e)

@@ -215,13 +215,12 @@ namespace SarasaviLibrarySystem.UI.Views
             gridMembers.DefaultCellStyle.SelectionBackColor = Color.FromArgb(45, 56, 80);
             gridMembers.DefaultCellStyle.SelectionForeColor = Color.White;
 
-            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "UserNumber", DataPropertyName = "UserNumber", HeaderText = "User No", Width = 90 });
-            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", DataPropertyName = "Name", HeaderText = "Full Name", Width = 150 });
+            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "UserNumber", DataPropertyName = "UserNumber", HeaderText = "User No", Width = 95 });
+            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "Name", DataPropertyName = "Name", HeaderText = "Full Name", Width = 160 });
             gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sex", DataPropertyName = "Sex", HeaderText = "Gender", Width = 75 });
-            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "NIC", DataPropertyName = "NIC", HeaderText = "NIC", Width = 110 });
-            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "Address", DataPropertyName = "Address", HeaderText = "Address", Width = 160 });
-            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "ActiveLoansCount", DataPropertyName = "ActiveLoansCount", HeaderText = "Loans", Width = 55 });
-            gridMembers.Columns.Add(new DataGridViewCheckBoxColumn { Name = "HasOverdueLoans", DataPropertyName = "HasOverdueLoans", HeaderText = "Overdue", Width = 50 });
+            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "NIC", DataPropertyName = "NIC", HeaderText = "NIC", Width = 115 });
+            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "Address", DataPropertyName = "Address", HeaderText = "Address", Width = 180 });
+            gridMembers.Columns.Add(new DataGridViewTextBoxColumn { Name = "ActiveLoansCount", DataPropertyName = "ActiveLoansCount", HeaderText = "Loans", Width = 60 });
 
             gridMembers.SelectionChanged += GridMembers_SelectionChanged;
             pnlGridHost.Controls.Add(gridMembers);
