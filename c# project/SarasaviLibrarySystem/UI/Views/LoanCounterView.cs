@@ -48,7 +48,6 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             this.Controls.Add(lblHeader);
 
-            // 1. Member Information Panel (Left Side)
             var pnlMember = new Panel
             {
                 Location = new Point(25, 65),
@@ -170,7 +169,6 @@ namespace SarasaviLibrarySystem.UI.Views
             pnlMember.Controls.Add(pnlProfileCard);
             this.Controls.Add(pnlMember);
 
-            // 2. Add Books to Issue Panel (Right Side)
             var pnlIssue = new Panel
             {
                 Location = new Point(505, 65),
@@ -224,7 +222,6 @@ namespace SarasaviLibrarySystem.UI.Views
             btnScan.Click += BtnScan_Click;
             pnlIssue.Controls.Add(btnScan);
 
-            // Book Found Banner
             pnlBookFound = new Panel
             {
                 Location = new Point(20, 115),
@@ -242,7 +239,6 @@ namespace SarasaviLibrarySystem.UI.Views
             pnlBookFound.Controls.Add(lblBookFound);
             pnlIssue.Controls.Add(pnlBookFound);
 
-            // Automated Rules Validation Box
             var pnlRulesVal = new Panel
             {
                 Location = new Point(20, 165),
@@ -294,7 +290,6 @@ namespace SarasaviLibrarySystem.UI.Views
             btnIssueLoan.Click += BtnIssueLoan_Click;
             pnlIssue.Controls.Add(btnIssueLoan);
 
-            // Current Issue List Table
             pnlIssue.Controls.Add(new Label
             {
                 Text = "Current Active Loans for Borrower",

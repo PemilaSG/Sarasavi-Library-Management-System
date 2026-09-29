@@ -67,7 +67,6 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             this.Controls.Add(txtTopSearch);
 
-            // Responsive 4-Column TableLayoutPanel for Top Cards
             pnlCardsContainer = new TableLayoutPanel
             {
                 Location = new Point(25, 70),
@@ -102,7 +101,6 @@ namespace SarasaviLibrarySystem.UI.Views
 
             this.Controls.Add(pnlCardsContainer);
 
-            // Table Container Panel
             pnlTableContainer = new Panel
             {
                 Location = new Point(25, 185),
@@ -169,7 +167,6 @@ namespace SarasaviLibrarySystem.UI.Views
 
             gridInventory.Columns.Clear();
             
-            // 5 Responsive Proportional Fill Columns
             gridInventory.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "AccessionCode",
@@ -309,22 +306,22 @@ namespace SarasaviLibrarySystem.UI.Views
                 e.Paint(e.CellBounds, DataGridViewPaintParts.All & ~DataGridViewPaintParts.ContentForeground);
 
                 string status = e.Value.ToString()!;
-                Color bg = Color.FromArgb(39, 174, 96); // Green
+                Color bg = Color.FromArgb(39, 174, 96);
                 Color text = Color.White;
 
                 if (status == "Reference Only")
                 {
-                    bg = Color.FromArgb(241, 196, 15); // Yellow
+                    bg = Color.FromArgb(241, 196, 15);
                     text = Color.FromArgb(20, 20, 20);
                 }
                 else if (status == "Borrowed")
                 {
-                    bg = Color.FromArgb(52, 152, 219); // Blue
+                    bg = Color.FromArgb(52, 152, 219);
                     text = Color.White;
                 }
                 else if (status == "Reserved")
                 {
-                    bg = Color.FromArgb(230, 126, 34); // Orange
+                    bg = Color.FromArgb(230, 126, 34);
                     text = Color.White;
                 }
 

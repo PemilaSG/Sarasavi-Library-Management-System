@@ -9,14 +9,12 @@ namespace SarasaviLibrarySystem.UI.Views
 {
     public class ManagementView : UserControl
     {
-        // Navigation Sub-Header Buttons
         private Button btnTabMembers = null!;
         private Button btnTabBooks = null!;
 
         private Panel pnlMembersTab = null!;
         private Panel pnlBooksTab = null!;
 
-        // --- Member Management UI Elements ---
         private TextBox txtSearchMember = null!;
         private DataGridView gridMembers = null!;
 
@@ -30,7 +28,6 @@ namespace SarasaviLibrarySystem.UI.Views
         private Button btnClearMember = null!;
         private Label lblMemStatus = null!;
 
-        // --- Book Management UI Elements ---
         private TextBox txtSearchBook = null!;
         private DataGridView gridBooks = null!;
 
@@ -51,7 +48,7 @@ namespace SarasaviLibrarySystem.UI.Views
             InitializeComponent();
             LoadMembersGrid("");
             LoadBooksGrid("");
-            SwitchTab(true); // Default to Members Tab
+            SwitchTab(true);
         }
 
         private void InitializeComponent()
@@ -59,7 +56,6 @@ namespace SarasaviLibrarySystem.UI.Views
             this.Dock = DockStyle.Fill;
             this.BackColor = Color.FromArgb(18, 22, 33);
 
-            // Title Header
             var lblHeader = new Label
             {
                 Text = "System Management Hub",
@@ -80,7 +76,6 @@ namespace SarasaviLibrarySystem.UI.Views
             };
             this.Controls.Add(lblSubHeader);
 
-            // Tab Selector Bar
             var pnlTabBar = new Panel
             {
                 Location = new Point(25, 75),
@@ -117,7 +112,6 @@ namespace SarasaviLibrarySystem.UI.Views
 
             this.Controls.Add(pnlTabBar);
 
-            // --- Panel 1: Member Management Tab ---
             pnlMembersTab = new Panel
             {
                 Location = new Point(25, 130),
@@ -128,7 +122,6 @@ namespace SarasaviLibrarySystem.UI.Views
             BuildMembersTabUI();
             this.Controls.Add(pnlMembersTab);
 
-            // --- Panel 2: Book Management Tab ---
             pnlBooksTab = new Panel
             {
                 Location = new Point(25, 130),
@@ -168,10 +161,8 @@ namespace SarasaviLibrarySystem.UI.Views
             }
         }
 
-        #region Member Management Tab UI & Methods
         private void BuildMembersTabUI()
         {
-            // Left Side: Grid & Search Panel
             var pnlGridHost = new Panel
             {
                 Location = new Point(0, 0),
@@ -236,7 +227,6 @@ namespace SarasaviLibrarySystem.UI.Views
             pnlGridHost.Controls.Add(gridMembers);
             pnlMembersTab.Controls.Add(pnlGridHost);
 
-            // Right Side: Edit / Delete Form Panel
             var pnlEditHost = new Panel
             {
                 Location = new Point(735, 0),
@@ -454,12 +444,8 @@ namespace SarasaviLibrarySystem.UI.Views
                 }
             }
         }
-        #endregion
-
-        #region Book Management Tab UI & Methods
         private void BuildBooksTabUI()
         {
-            // Left Side: Grid & Search Panel
             var pnlGridHost = new Panel
             {
                 Location = new Point(0, 0),
@@ -525,7 +511,6 @@ namespace SarasaviLibrarySystem.UI.Views
             pnlGridHost.Controls.Add(gridBooks);
             pnlBooksTab.Controls.Add(pnlGridHost);
 
-            // Right Side: Edit / Delete Form Panel
             var pnlEditHost = new Panel
             {
                 Location = new Point(735, 0),
@@ -828,9 +813,7 @@ namespace SarasaviLibrarySystem.UI.Views
                 e.Handled = true;
             }
         }
-        #endregion
 
-        #region UI Helper Factories
         private Label CreateFieldLabel(string text, int x, int y)
         {
             return new Label
@@ -881,6 +864,5 @@ namespace SarasaviLibrarySystem.UI.Views
             path.CloseFigure();
             return path;
         }
-        #endregion
     }
 }
